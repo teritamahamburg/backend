@@ -1,0 +1,98 @@
+@startuml
+' styles
+skinparam linetype ortho
+skinparam shadowing false
+skinparam shadowing<<with_shadow>> true
+
+!define Table(name) class name<<table>> << (T,#add1b2) >>
+!define primary_key(x) <b>x</b>
+!define foreign_key(x) <i>x</i>
+!define unique(x) <color:green>x</color>
+!define unique_key(x) <color:blue>x</color>
+!define not_null(x) <u>x</u>
+' other tags available:
+' <back:COLOR></color>, where color is a color name or html color code
+' see: http://plantuml.com/classes.html#More
+
+skinparam class {
+    ArrowColor #0d0d88
+    ArrowStyle Bold
+}
+
+skinparam class<<table>> {
+    BorderColor #c0c0c0
+    BackgroundColor #fcfad1
+}
+
+hide methods
+hide stereotypes
+
+' entities
+Table(details)<<with_shadow>> {
+    primary_key(PRIMARY KEY)
+    foreign_key(FOREIGN KEY)
+    not_null(NOT NULL)
+    unique(UNIQUE)
+    unique_key(UNIQUE_KEY)
+}
+
+Table(users) {
+    primary_key(id) integer
+    ---
+    not_null(name) varchar[255]
+    not_null(createdAt) datetime
+    not_null(updatedAt) datetime
+}
+
+Table(rooms) {
+    primary_key(id) integer
+    ---
+    not_null(number) integer
+    not_null(createdAt) datetime
+    not_null(updatedAt) datetime
+}
+
+Table(courses) {
+    primary_key(id) integer
+    ---
+    not_null(name) varchar[255]
+    not_null(createdAt) datetime
+    not_null(updatedAt) datetime
+}
+
+Table(items) {
+    primary_key(id) integer
+    ---
+    unique(not_null(internalId))unique_key([id]) varchar[255]
+    unique(not_null(partId))unique_key([id]) integer
+    not_null(createdAt) datetime
+    not_null(updatedAt) datetime
+    deletedAt datetime
+}
+
+Table(item_histories) {
+    primary_key(id) integer
+    ---
+    foreign_key(not_null(itemId)): integer
+    not_null(schoolName) varchar[255]
+    not_null(name) varchar[255]
+    not_null(code) varchar[255]
+    not_null(amount) integer
+    not_null(purchasedAt) date
+    foreign_key(not_null(userId)) integer
+    foreign_key(not_null(courseId)) integer
+    not_null(checkedAt) date
+    foreign_key(not_null(roomId)) integer
+    not_null(disposalAt) date
+    not_null(depreciationAt) date
+    foreign_key(not_null(editUserId)) integer
+    not_null(createdAt) datetime
+    not_null(updatedAt) datetime
+}
+
+' relations
+items --> item_histories: itemId:id
+item_histories --> users: userId:id\neditUserId:id
+item_histories --> rooms: roomId:id
+item_histories --> courses: courseId:id
+@enduml

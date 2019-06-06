@@ -1,0 +1,91 @@
+scalar Date
+scalar Time
+scalar DateTime
+
+type Item {
+    id: ID!
+    internalId: ID!
+    partId: ID!
+    schoolName: String!
+    name: String!
+    code: String!
+    amount: Int!
+    purchasedAt: Date!
+    user: User!
+    course: Course!
+    checkedAt: Date
+    room: Room!
+    disposalAt: Date
+    depreciationAt: Date
+    editUser: User!
+    createdAt: Date!
+    deletedAt: Date
+
+    histories: [HistoryItem!]!
+}
+
+type HistoryItem {
+    id: ID!
+    room: Room
+    editUser: User!
+    checkedAt: Date
+    disposalAt: Date
+    depreciationAt: Date
+    createdAt: Date!
+}
+
+input ItemInput {
+    schoolName: String = "ss"
+    name: String!
+    code: String!
+    amount: Int = 1
+    purchasedAt: Date!
+    user: String!
+    course: String!
+    checkedAt: Date
+    room: Int!
+    disposalAt: Date
+    depreciationAt: Date
+    editUser: String!
+}
+
+input EditItemInput {
+    room: Int
+    checkedAt: Date
+    disposalAt: Date
+    depreciationAt: Date
+    editUser: String!
+}
+
+type User {
+    id: ID!
+    name: String!
+}
+
+type Course {
+    id: ID!
+    name: String!
+}
+
+type Room {
+    id: ID!
+    number: Int!
+}
+
+type Result {
+    success: Boolean!
+    message: String
+}
+
+type Query {
+    items(sort: [[String!]!] = [["id", "asc"]], child: Boolean = false): [Item!]!
+    item(id: ID!): Item
+
+    searchItems(text: String!): [Item!]!
+}
+
+type Mutation {
+    addItem(data: ItemInput!, child: Boolean = false, internalId: ID): Result!
+    editItem(id: ID!, data: EditItemInput!): Result!
+    removeItems(ids: [ID!]!): Result!
+}

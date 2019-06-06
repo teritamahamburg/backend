@@ -4,19 +4,25 @@
   "description": "",
   "main": "src/index.js",
   "scripts": {
-    "serve": "nodemon --watch src --exec \"webpack --mode development --display none & node dist\"",
-    "build": "webpack --mode production"
+    "serve": "nodemon --watch src --watch ./schema.graphql --ext js,graphql --exec \"webpack --mode development --display none & node dist\"",
+    "build": "webpack --mode production",
+    "start": "node dist"
   },
   "author": "",
   "license": "MIT",
   "dependencies": {
     "apollo-server-koa": "^2.6.1",
+    "debug": "^4.1.1",
     "graphql": "^14.3.1",
+    "graphql-iso-date": "^3.6.1",
     "graphql-tag": "^2.10.1",
     "koa": "^2.7.0",
     "koa-bodyparser": "^4.2.1",
     "koa-router": "^7.4.0",
     "koa-static": "^5.0.0",
+    "sequelize": "^5.8.7",
+    "sqlite3": "^4.0.8",
+    "uuid": "^3.3.2",
     "webpack-node-externals": "^1.7.2"
   },
   "devDependencies": {
