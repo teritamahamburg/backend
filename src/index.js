@@ -2,6 +2,7 @@ import Koa from 'koa';
 import BodyParser from 'koa-bodyparser';
 import Router from 'koa-router';
 import Serve from 'koa-static';
+import apiFallback from 'koa-history-api-fallback';
 import GraphQLMiddleware from './GraphQLMiddleware';
 import db from './sequelize/models/index';
 
@@ -16,6 +17,8 @@ const router = new Router();
 app.use(router.routes());
 app.use(router.allowedMethods());
 
+app.use(Serve('public'));
+app.use(apiFallback());
 app.use(Serve('public'));
 
 (async () => {
