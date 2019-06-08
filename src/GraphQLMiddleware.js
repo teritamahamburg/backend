@@ -10,7 +10,6 @@ import typeDefs from '../schema.graphql';
  */
 const itemsSortProperties = [
   'id',
-  'partId',
   'amount',
   'purchasedAt',
   'checkedAt',
@@ -37,12 +36,12 @@ class GraphQLMiddleware {
 
   get Query() {
     return {
-      items: async (parent, { sort, child }) => {
+      items: async (parent, { sort }) => {
         const orders = sort
           .filter(s => itemsSortProperties.includes(s[0]))
           .map(([col, order]) => [col, order === 'asc' ? 'asc' : 'desc']);
         const items = await this.db.items.findAll({
-          where: child ? {/* any */} : { partId: 0 },
+          where: { partId: 0 },
           order: orders,
           include: [
             {
@@ -112,13 +111,7 @@ class GraphQLMiddleware {
 
   get Mutation() {
     return {
-      addItem: async (parent, { data, child, internalId }) => {
-        if (child && !internalId) {
-          return {
-            success: false,
-            message: 'require `internalId` when `child` = true',
-          };
-        }
+      addItem: async (parent, { data }) => {
         // 事前準備(他テーブルに必要なデータを追加)
         const user = (await this.db.users.findOrCreate({
           where: { name: data.user },
@@ -137,21 +130,10 @@ class GraphQLMiddleware {
           defaults: { name: data.course },
         }))[0];
 
-        let item;
-        if (child) { // 子物品追加
-          const max = await this.db.items.max('partId', {
-            where: { internalId },
-          });
-          item = await this.db.items.create({
-            internalId,
-            partId: max + 1,
-          });
-        } else { // 新規追加
-          item = await this.db.items.create({
-            internalId: uuidv4(),
-            partId: 0,
-          });
-        }
+        const item = await this.db.items.create({
+          internalId: uuidv4(),
+          partId: 0,
+        });
 
         // 実データ挿入
         await this.db.itemHistories.create({
@@ -192,6 +174,12 @@ class GraphQLMiddleware {
             message: 'item not found',
           };
         }
+        if (item.partId !== 0) {
+          return {
+            success: false,
+            message: 'item is part',
+          };
+        }
         const edit = {};
         Object.keys(data).forEach((key) => {
           if (data[key] !== undefined) {
@@ -222,12 +210,157 @@ class GraphQLMiddleware {
         };
       },
       removeItems: async (parent, { ids }) => {
-        // TODO: partIdが0のものを消すときには同じinternalIdのものも消す
-        await this.db.items.destroy({
+        const wheres = (await this.db.items.findAll({
           where: {
             id: ids,
           },
+        })).map(({ id, partId, internalId }) => (partId === 0 ? { internalId } : { id }));
+
+        await this.db.items.destroy({
+          where: {
+            [this.db.Sequelize.Op.or]: wheres,
+          },
         });
+        return {
+          success: true,
+        };
+      },
+      addPart: async (parent, { internalId, data }) => {
+        if (Object.keys(data).length <= 1) {
+          return {
+            success: false,
+            message: 'change at least one',
+          };
+        }
+        let item = (await this.db.items.findAll({
+          paranoid: false,
+          attributes: [
+            [this.db.sequelize.fn('MAX', this.db.sequelize.col('partId')), 'max'],
+            'deletedAt',
+          ],
+          where: { internalId },
+          order: [['id', 'desc']],
+          limit: 1,
+          include: [
+            {
+              model: this.db.itemHistories,
+              limit: 1,
+              order: [['id', 'desc']],
+              include: [
+                { model: this.db.users, as: 'editUser' },
+                this.db.rooms,
+              ],
+            },
+          ],
+        }))[0].dataValues;
+        if (!item.id) {
+          return {
+            success: false,
+            message: 'parent item not found',
+          };
+        }
+        const { max, deletedAt } = item;
+        item = {
+          ...item.itemHistories[0].dataValues,
+        };
+        item.room = item.room.number;
+        if (Object.keys(data)
+          .filter(k => k !== 'editUser')
+          .every(k => data[k] === item[k])) {
+          return {
+            success: false,
+            message: 'part data not change',
+          };
+        }
+        if (item.editUser.name !== data.editUser) {
+          item.editUserId = (await this.db.users.findOrCreate({
+            where: { name: data.editUser },
+            defaults: { name: data.editUser },
+          }))[0].id;
+        }
+        item.name = data.name || item.name;
+        if (item.room.number !== data.room) {
+          item.roomId = (await this.db.rooms.findOrCreate({
+            where: { number: data.room },
+            defaults: { number: data.room },
+          }))[0].id;
+        }
+        item.checkedAt = data.checkedAt || item.checkedAt;
+        item.itemId = (await this.db.items.create({
+          internalId,
+          partId: max + 1,
+          deletedAt,
+        })).id;
+        delete item.id;
+        delete item.createdAt;
+        delete item.updatedAt;
+        await this.db.itemHistories.create(item);
+        return {
+          success: true,
+        };
+      },
+      editPart: async (parent, { id, data }) => {
+        if (Object.keys(data).length <= 1) {
+          return {
+            success: false,
+            message: 'change at least one',
+          };
+        }
+        let item = await this.db.items.findOne({
+          paranoid: false,
+          where: { id },
+          include: [
+            {
+              model: this.db.itemHistories,
+              limit: 1,
+              order: [['id', 'desc']],
+              include: [
+                { model: this.db.users, as: 'editUser' },
+                this.db.rooms,
+              ],
+            },
+          ],
+        });
+        if (!item) {
+          return {
+            success: false,
+            message: 'item not found',
+          };
+        }
+        if (item.partId === 0) {
+          return {
+            success: false,
+            message: 'partId is 0, use `editItem` query instead',
+          };
+        }
+        item = item.dataValues.itemHistories[0].dataValues;
+        item.room = item.room.number;
+        if (Object.keys(data)
+          .filter(k => k !== 'editUser')
+          .every(k => data[k] === item[k])) {
+          return {
+            success: false,
+            message: 'part data not change',
+          };
+        }
+        if (item.editUser.name !== data.editUser) {
+          item.editUserId = (await this.db.users.findOrCreate({
+            where: { name: data.editUser },
+            defaults: { name: data.editUser },
+          }))[0].id;
+        }
+        item.name = data.name || item.name;
+        if (item.room.number !== data.room) {
+          item.roomId = (await this.db.rooms.findOrCreate({
+            where: { number: data.room },
+            defaults: { number: data.room },
+          }))[0].id;
+        }
+        item.checkedAt = data.checkedAt || item.checkedAt;
+        delete item.id;
+        delete item.createdAt;
+        delete item.updatedAt;
+        await this.db.itemHistories.create(item);
         return {
           success: true,
         };
@@ -249,6 +382,40 @@ class GraphQLMiddleware {
           this.db.rooms,
         ],
       }),
+      parts: async ({ internalId, partId }) => {
+        if (partId !== 0) return [];
+        const items = await this.db.items.findAll({
+          where: {
+            internalId,
+            partId: {
+              [this.db.Sequelize.Op.ne]: 0,
+            },
+          },
+          include: [
+            {
+              model: this.db.itemHistories,
+              limit: 1,
+              order: [['id', 'desc']],
+              include: [
+                {
+                  model: this.db.users,
+                  as: 'user',
+                },
+                {
+                  model: this.db.users,
+                  as: 'editUser',
+                },
+                this.db.rooms,
+                this.db.courses,
+              ],
+            },
+          ],
+        });
+        return items.map(item => ({
+          ...item.itemHistories[0].dataValues,
+          ...item.dataValues,
+        }));
+      },
     };
   }
 

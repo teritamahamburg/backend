@@ -2,6 +2,26 @@ scalar Date
 scalar Time
 scalar DateTime
 
+type User {
+    id: ID!
+    name: String!
+}
+
+type Course {
+    id: ID!
+    name: String!
+}
+
+type Room {
+    id: ID!
+    number: Int!
+}
+
+type Result {
+    success: Boolean!
+    message: String
+}
+
 type Item {
     id: ID!
     internalId: ID!
@@ -22,6 +42,8 @@ type Item {
     deletedAt: Date
 
     histories: [HistoryItem!]!
+
+    parts: [PartItem!]!
 }
 
 type HistoryItem {
@@ -32,6 +54,16 @@ type HistoryItem {
     disposalAt: Date
     depreciationAt: Date
     createdAt: Date!
+}
+
+type PartItem {
+    id: ID!
+    internalId: String!
+    partId: String!
+    editUser: User!
+    name: String!
+    room: Room!
+    checkedAt: Date
 }
 
 input ItemInput {
@@ -57,35 +89,25 @@ input EditItemInput {
     editUser: String!
 }
 
-type User {
-    id: ID!
-    name: String!
-}
-
-type Course {
-    id: ID!
-    name: String!
-}
-
-type Room {
-    id: ID!
-    number: Int!
-}
-
-type Result {
-    success: Boolean!
-    message: String
+input PartItemInput {
+    editUser: String!
+    name: String
+    room: Int
+    checkedAt: Date
 }
 
 type Query {
-    items(sort: [[String!]!] = [["id", "asc"]], child: Boolean = false): [Item!]!
+    items(sort: [[String!]!] = [["id", "asc"]]): [Item!]!
     item(id: ID!): Item
 
     searchItems(text: String!): [Item!]!
 }
 
 type Mutation {
-    addItem(data: ItemInput!, child: Boolean = false, internalId: ID): Result!
+    addItem(data: ItemInput!): Result!
     editItem(id: ID!, data: EditItemInput!): Result!
     removeItems(ids: [ID!]!): Result!
+
+    addPart(internalId: ID!, data: PartItemInput!): Result!
+    editPart(id: ID!, data: PartItemInput!): Result!
 }
