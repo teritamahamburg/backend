@@ -38,8 +38,8 @@ type Item {
     disposalAt: Date
     depreciationAt: Date
     editUser: User!
-    createdAt: Date!
-    deletedAt: Date
+    createdAt: DateTime!
+    deletedAt: DateTime
 
     histories: [HistoryItem!]!
 

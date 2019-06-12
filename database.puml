@@ -39,7 +39,8 @@ Table(details)<<with_shadow>> {
 Table(users) {
     primary_key(id) integer
     ---
-    not_null(name) varchar[255]
+    unique(not_null(name)) varchar[255]
+    ---
     not_null(createdAt) datetime
     not_null(updatedAt) datetime
 }
@@ -47,7 +48,8 @@ Table(users) {
 Table(rooms) {
     primary_key(id) integer
     ---
-    not_null(number) integer
+    unique(not_null(number)) integer
+    ---
     not_null(createdAt) datetime
     not_null(updatedAt) datetime
 }
@@ -55,7 +57,8 @@ Table(rooms) {
 Table(courses) {
     primary_key(id) integer
     ---
-    not_null(name) varchar[255]
+    unique(not_null(name)) varchar[255]
+    ---
     not_null(createdAt) datetime
     not_null(updatedAt) datetime
 }
@@ -65,6 +68,7 @@ Table(items) {
     ---
     unique(not_null(internalId))unique_key([id]) varchar[255]
     unique(not_null(partId))unique_key([id]) integer
+    ---
     not_null(createdAt) datetime
     not_null(updatedAt) datetime
     deletedAt datetime
@@ -86,13 +90,14 @@ Table(item_histories) {
     not_null(disposalAt) date
     not_null(depreciationAt) date
     foreign_key(not_null(editUserId)) integer
+    ---
     not_null(createdAt) datetime
     not_null(updatedAt) datetime
 }
 
 ' relations
-items --> item_histories: itemId:id
-item_histories --> users: userId:id\neditUserId:id
-item_histories --> rooms: roomId:id
-item_histories --> courses: courseId:id
+items --|{ item_histories: itemId:id
+item_histories }o-- users: userId:id\neditUserId:id
+item_histories }o-- rooms: roomId:id
+item_histories }o-- courses: courseId:id
 @enduml

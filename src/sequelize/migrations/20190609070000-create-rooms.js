@@ -9,6 +9,7 @@ module.exports = {
     number: {
       type: Sequelize.INTEGER,
       allowNull: false,
+      unique: 'rooms_unique_number',
     },
     createdAt: {
       allowNull: false,

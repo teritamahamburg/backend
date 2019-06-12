@@ -36,38 +36,11 @@ class GraphQLMiddleware {
 
   get Query() {
     return {
-      items: async (parent, { sort }) => {
+      items: (parent, { sort }) => {
         const orders = sort
           .filter(s => itemsSortProperties.includes(s[0]))
           .map(([col, order]) => [col, order === 'asc' ? 'asc' : 'desc']);
-        const items = await this.db.items.findAll({
-          where: { partId: 0 },
-          order: orders,
-          include: [
-            {
-              model: this.db.itemHistories,
-              limit: 1,
-              order: [['id', 'desc']],
-              include: [
-                {
-                  model: this.db.users,
-                  as: 'user',
-                },
-                {
-                  model: this.db.users,
-                  as: 'editUser',
-                },
-                this.db.rooms,
-                this.db.courses,
-              ],
-            },
-          ],
-        });
-
-        return items.map(item => ({
-          ...item.itemHistories[0].dataValues,
-          ...item.dataValues,
-        }));
+        return this.db.queries.itemsWithOrder(orders);
       },
       item: async (parent, { id }) => {
         const item = await this.db.items.findOne({
