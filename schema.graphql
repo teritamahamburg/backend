@@ -97,10 +97,8 @@ input PartItemInput {
 }
 
 type Query {
-    items(sort: [[String!]!] = [["id", "asc"]]): [Item!]!
+    items(sort: [[String!]!] = [["id", "asc"]], search: String): [Item!]!
     item(id: ID!): Item
-
-    searchItems(text: String!): [Item!]!
 }
 
 type Mutation {

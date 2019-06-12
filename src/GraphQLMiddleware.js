@@ -36,12 +36,20 @@ class GraphQLMiddleware {
 
   get Query() {
     return {
-      items: (parent, { sort }) => {
-        const orders = sort
+      items: (parent, { sort, search }) => this.db.queries.items()
+        .orders(sort
           .filter(s => itemsSortProperties.includes(s[0]))
-          .map(([col, order]) => [col, order === 'asc' ? 'asc' : 'desc']);
-        return this.db.queries.itemsWithOrder(orders);
-      },
+          .map(([col, order]) => [col, order === 'asc' ? 'asc' : 'desc']))
+        .likes(search ? [
+          ['name', `%${search}%`],
+          ['code', `%${search}%`],
+          ['schoolName', `%${search}%`],
+          ['user.name', `%${search}%`],
+          ['editUser.name', `%${search}%`],
+          ['course.name', `%${search}%`],
+          ['room.number', `%${search}%`],
+        ] : [])
+        .exec(),
       item: async (parent, { id }) => {
         const item = await this.db.items.findOne({
           paranoid: false,
@@ -70,14 +78,6 @@ class GraphQLMiddleware {
           ...item.itemHistories[0].dataValues,
           ...item.dataValues,
         }) : undefined;
-      },
-      searchItems: async (parent, { text }) => {
-        // TODO: convert to query
-        const items = await this.Query.items(parent, { sort: ['id', 'asc'], child: false });
-        const t = text.toUpperCase();
-        return items.filter(item => (
-          item.name.toUpperCase().includes(t) || item.code.toUpperCase().includes(t)
-        ));
       },
     };
   }
