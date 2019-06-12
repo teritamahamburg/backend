@@ -99,6 +99,8 @@ input PartItemInput {
 type Query {
     items(sort: [[String!]!] = [["id", "asc"]], search: String): [Item!]!
     item(id: ID!): Item
+
+    csv(paranoid: Boolean = false): String!
 }
 
 type Mutation {

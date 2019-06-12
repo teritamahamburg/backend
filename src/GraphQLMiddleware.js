@@ -36,11 +36,8 @@ class GraphQLMiddleware {
 
   get Query() {
     return {
-      items: (parent, { sort, search }) => this.db.queries.items()
-        .orders(sort
-          .filter(s => itemsSortProperties.includes(s[0]))
-          .map(([col, order]) => [col, order === 'asc' ? 'asc' : 'desc']))
-        .likes(search ? [
+      items: (parent, { sort, search }) => this.db.queries.items({
+        likes: search ? [
           ['name', `%${search}%`],
           ['code', `%${search}%`],
           ['schoolName', `%${search}%`],
@@ -48,8 +45,11 @@ class GraphQLMiddleware {
           ['editUser.name', `%${search}%`],
           ['course.name', `%${search}%`],
           ['room.number', `%${search}%`],
-        ] : [])
-        .exec(),
+        ] : [],
+        orders: sort
+          .filter(s => itemsSortProperties.includes(s[0]))
+          .map(([col, order]) => [col, order === 'asc' ? 'asc' : 'desc']),
+      }),
       item: async (parent, { id }) => {
         const item = await this.db.items.findOne({
           paranoid: false,
@@ -79,6 +79,7 @@ class GraphQLMiddleware {
           ...item.dataValues,
         }) : undefined;
       },
+      csv: paranoid => this.db.queries.csv({ paranoid }),
     };
   }
 
