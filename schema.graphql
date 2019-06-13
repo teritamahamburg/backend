@@ -96,8 +96,14 @@ input PartItemInput {
     checkedAt: Date
 }
 
+enum ItemEnum {
+    ONLY_DELETED,
+    ALL,
+    NORMAL,
+}
+
 type Query {
-    items(sort: [[String!]!] = [["id", "asc"]], search: String): [Item!]!
+    items(sort: [[String!]!] = [["id", "asc"]], search: String, itemEnum: ItemEnum = NORMAL): [Item!]!
     item(id: ID!): Item
 
     csv(paranoid: Boolean = false): String!
@@ -106,7 +112,8 @@ type Query {
 type Mutation {
     addItem(data: ItemInput!): Result!
     editItem(id: ID!, data: EditItemInput!): Result!
-    removeItems(ids: [ID!]!): Result!
+    removeItems(ids: [ID!]!): Result! # share parts
+    restoreItem(id: ID!): Result! # share parts
 
     addPart(internalId: ID!, data: PartItemInput!): Result!
     editPart(id: ID!, data: PartItemInput!): Result!

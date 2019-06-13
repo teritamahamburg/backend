@@ -36,7 +36,7 @@ class GraphQLMiddleware {
 
   get Query() {
     return {
-      items: (parent, { sort, search }) => this.db.queries.items({
+      items: (parent, { sort, search, itemEnum }) => this.db.queries.items({
         likes: search ? [
           ['name', `%${search}%`],
           ['code', `%${search}%`],
@@ -49,6 +49,7 @@ class GraphQLMiddleware {
         orders: sort
           .filter(s => itemsSortProperties.includes(s[0]))
           .map(([col, order]) => [col, order === 'asc' ? 'asc' : 'desc']),
+        itemEnum,
       }),
       item: async (parent, { id }) => {
         const item = await this.db.items.findOne({
@@ -335,6 +336,31 @@ class GraphQLMiddleware {
         delete item.createdAt;
         delete item.updatedAt;
         await this.db.itemHistories.create(item);
+        return {
+          success: true,
+        };
+      },
+      restoreItem: async (parent, { id }) => {
+        const item = await this.db.items.findOne({
+          paranoid: false,
+          attributes: ['deletedAt'],
+          where: { id },
+        });
+        if (!item) {
+          return {
+            success: false,
+            message: 'item not found',
+          };
+        }
+        if (!item.deletedAt) {
+          return {
+            success: false,
+            message: 'item not deleted',
+          };
+        }
+        await this.db.items.restore({
+          where: { id },
+        });
         return {
           success: true,
         };

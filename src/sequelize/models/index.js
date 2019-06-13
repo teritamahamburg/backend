@@ -35,13 +35,13 @@ db.queries = {
   items({
     orders = [],
     likes = [],
-    paranoid = false,
+    itemEnum = 'NORMAL', // [NORMAL, ALL, ONLY_DELETED]
   }) {
     let query = 'SELECT * FROM (SELECT `i2`.`id`,`i2`.`internalId`,`i2`.`partId`,`i`.`schoolName`,`i`.`name`,`i`.`code`,`i`.`amount`,`i`.`purchasedAt`,`i`.`userId`,`i`.`courseId`,`i`.`checkedAt`,`i`.`roomId`,`i`.`disposalAt`,`i`.`depreciationAt`,`i`.`editUserId`,`i`.`createdAt`,`i2`.`deletedAt`,`user`.`id` AS `user.id`,`user`.`name` AS `user.name`,`editUser`.`id` AS `editUser.id`,`editUser`.`name` AS `editUser.name`,`room`.`id` AS `room.id`,`room`.`number` AS `room.number`,`course`.`id` AS `course.id`,`course`.`name` AS `course.name` FROM (SELECT MAX(ih.id) AS m FROM itemHistories AS ih GROUP BY ih.itemId) AS m  JOIN itemHistories AS i ON m.m = i.id  JOIN users AS user ON i.userId = user.id  JOIN users AS editUser ON i.editUserId = editUser.id  JOIN rooms AS room ON i.roomId = room.id  JOIN courses AS course ON i.courseId = course.id  JOIN items i2 ON i.itemId = i2.id)';
     const replacements = [];
-    if (!paranoid) query += ' WHERE deletedAt IS NULL';
+    if (itemEnum !== 'ALL') query += ` WHERE deletedAt IS${itemEnum === 'NORMAL' ? '' : ' NOT'} NULL`;
     if (likes.length > 0) {
-      query += `${!paranoid ? ' AND ' : ' WHERE '}(${likes
+      query += `${itemEnum !== 'ALL' ? ' AND ' : ' WHERE '}(${likes
         .map(([col, t]) => {
           replacements.push(t);
           return `\`${col}\` LIKE ?`;
