@@ -36,39 +36,21 @@ class GraphQLMiddleware {
 
   get Query() {
     return {
-      items: async (parent, { sort }) => {
-        const orders = sort
+      items: (parent, { sort, search, itemEnum }) => this.db.queries.items({
+        likes: search ? [
+          ['name', `%${search}%`],
+          ['code', `%${search}%`],
+          ['schoolName', `%${search}%`],
+          ['user.name', `%${search}%`],
+          ['editUser.name', `%${search}%`],
+          ['course.name', `%${search}%`],
+          ['room.number', `%${search}%`],
+        ] : [],
+        orders: sort
           .filter(s => itemsSortProperties.includes(s[0]))
-          .map(([col, order]) => [col, order === 'asc' ? 'asc' : 'desc']);
-        const items = await this.db.items.findAll({
-          where: { partId: 0 },
-          order: orders,
-          include: [
-            {
-              model: this.db.itemHistories,
-              limit: 1,
-              order: [['id', 'desc']],
-              include: [
-                {
-                  model: this.db.users,
-                  as: 'user',
-                },
-                {
-                  model: this.db.users,
-                  as: 'editUser',
-                },
-                this.db.rooms,
-                this.db.courses,
-              ],
-            },
-          ],
-        });
-
-        return items.map(item => ({
-          ...item.itemHistories[0].dataValues,
-          ...item.dataValues,
-        }));
-      },
+          .map(([col, order]) => [col, order === 'asc' ? 'asc' : 'desc']),
+        itemEnum,
+      }),
       item: async (parent, { id }) => {
         const item = await this.db.items.findOne({
           paranoid: false,
@@ -98,14 +80,7 @@ class GraphQLMiddleware {
           ...item.dataValues,
         }) : undefined;
       },
-      searchItems: async (parent, { text }) => {
-        // TODO: convert to query
-        const items = await this.Query.items(parent, { sort: ['id', 'asc'], child: false });
-        const t = text.toUpperCase();
-        return items.filter(item => (
-          item.name.toUpperCase().includes(t) || item.code.toUpperCase().includes(t)
-        ));
-      },
+      csv: paranoid => this.db.queries.csv({ paranoid }),
     };
   }
 
@@ -361,6 +336,31 @@ class GraphQLMiddleware {
         delete item.createdAt;
         delete item.updatedAt;
         await this.db.itemHistories.create(item);
+        return {
+          success: true,
+        };
+      },
+      restoreItem: async (parent, { id }) => {
+        const item = await this.db.items.findOne({
+          paranoid: false,
+          attributes: ['deletedAt'],
+          where: { id },
+        });
+        if (!item) {
+          return {
+            success: false,
+            message: 'item not found',
+          };
+        }
+        if (!item.deletedAt) {
+          return {
+            success: false,
+            message: 'item not deleted',
+          };
+        }
+        await this.db.items.restore({
+          where: { id },
+        });
         return {
           success: true,
         };

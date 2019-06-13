@@ -3,10 +3,8 @@ module.exports = (sequelize, DataTypes) => {
     name: {
       type: DataTypes.STRING,
       allowNull: false,
+      unique: 'users_unique_name',
     },
   }, {});
-  /* users.associate = function (models) {
-    // associations can be defined here
-  }; */
   return users;
 };

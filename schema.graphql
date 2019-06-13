@@ -38,8 +38,8 @@ type Item {
     disposalAt: Date
     depreciationAt: Date
     editUser: User!
-    createdAt: Date!
-    deletedAt: Date
+    createdAt: DateTime!
+    deletedAt: DateTime
 
     histories: [HistoryItem!]!
 
@@ -96,17 +96,24 @@ input PartItemInput {
     checkedAt: Date
 }
 
+enum ItemEnum {
+    ONLY_DELETED,
+    ALL,
+    NORMAL,
+}
+
 type Query {
-    items(sort: [[String!]!] = [["id", "asc"]]): [Item!]!
+    items(sort: [[String!]!] = [["id", "asc"]], search: String, itemEnum: ItemEnum = NORMAL): [Item!]!
     item(id: ID!): Item
 
-    searchItems(text: String!): [Item!]!
+    csv(paranoid: Boolean = false): String!
 }
 
 type Mutation {
     addItem(data: ItemInput!): Result!
     editItem(id: ID!, data: EditItemInput!): Result!
-    removeItems(ids: [ID!]!): Result!
+    removeItems(ids: [ID!]!): Result! # share parts
+    restoreItem(id: ID!): Result! # share parts
 
     addPart(internalId: ID!, data: PartItemInput!): Result!
     editPart(id: ID!, data: PartItemInput!): Result!

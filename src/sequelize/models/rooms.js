@@ -3,10 +3,8 @@ module.exports = (sequelize, DataTypes) => {
     number: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      unique: 'rooms_unique_number',
     },
   }, {});
-  /* rooms.associate = function(models) {
-    // associations can be defined here
-  }; */
   return rooms;
 };
