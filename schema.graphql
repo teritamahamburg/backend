@@ -1,3 +1,20 @@
+type Query {
+    items(sort: [[String!]!] = [["id", "asc"]], search: String, itemEnum: ItemEnum = NORMAL): [Item!]!
+    item(id: ID!): Item
+
+    csv(paranoid: Boolean = false): String!
+}
+
+type Mutation {
+    addItem(data: ItemInput!): Result!
+    editItem(id: ID!, data: EditItemInput!): Result!
+    removeItems(ids: [ID!]!): Result! # share parts
+    restoreItem(id: ID!): Result! # share parts
+
+    addPart(internalId: ID!, data: PartItemInput!): Result!
+    editPart(id: ID!, data: PartItemInput!): Result!
+}
+
 scalar Date
 scalar Time
 scalar DateTime
@@ -26,6 +43,7 @@ type Item {
     id: ID!
     internalId: ID!
     partId: ID!
+    seal: String
     schoolName: String!
     name: String!
     code: String!
@@ -67,6 +85,7 @@ type PartItem {
 }
 
 input ItemInput {
+    sealImage: Upload
     schoolName: String = "ss"
     name: String!
     code: String!
@@ -100,21 +119,4 @@ enum ItemEnum {
     ONLY_DELETED,
     ALL,
     NORMAL,
-}
-
-type Query {
-    items(sort: [[String!]!] = [["id", "asc"]], search: String, itemEnum: ItemEnum = NORMAL): [Item!]!
-    item(id: ID!): Item
-
-    csv(paranoid: Boolean = false): String!
-}
-
-type Mutation {
-    addItem(data: ItemInput!): Result!
-    editItem(id: ID!, data: EditItemInput!): Result!
-    removeItems(ids: [ID!]!): Result! # share parts
-    restoreItem(id: ID!): Result! # share parts
-
-    addPart(internalId: ID!, data: PartItemInput!): Result!
-    editPart(id: ID!, data: PartItemInput!): Result!
 }
