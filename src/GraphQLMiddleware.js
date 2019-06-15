@@ -1,3 +1,6 @@
+import fs from 'fs';
+import { extname } from 'path';
+
 import uuidv4 from 'uuid/v4';
 
 import { ApolloServer } from 'apollo-server-koa';
@@ -87,6 +90,21 @@ class GraphQLMiddleware {
   get Mutation() {
     return {
       addItem: async (parent, { data }) => {
+        const internalId = uuidv4();
+        let seal = null;
+        // シールのダウンロード
+        if (data.sealImage) {
+          await fs.promises.mkdir('public/seal', { recursive: true });
+          const { filename, mimetype, createReadStream } = await data.sealImage;
+
+          if (!mimetype.startsWith('image/')) return { success: false, message: 'seal must image' };
+          const dest = fs.createWriteStream(`public/seal/${internalId}${extname(filename)}`);
+          await new Promise((resolve) => {
+            seal = extname(filename);
+            createReadStream().pipe(dest).on('finish', resolve);
+          });
+        }
+
         // 事前準備(他テーブルに必要なデータを追加)
         const user = (await this.db.users.findOrCreate({
           where: { name: data.user },
@@ -106,8 +124,9 @@ class GraphQLMiddleware {
         }))[0];
 
         const item = await this.db.items.create({
-          internalId: uuidv4(),
+          internalId,
           partId: 0,
+          seal,
         });
 
         // 実データ挿入

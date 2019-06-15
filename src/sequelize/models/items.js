@@ -10,6 +10,10 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       unique: 'id',
     },
+    seal: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
   }, {
     paranoid: true,
   });
