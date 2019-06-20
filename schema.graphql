@@ -2,7 +2,7 @@ type Query {
     items(sort: [[String!]!] = [["id", "asc"]], search: String, itemEnum: ItemEnum = NORMAL): [Item!]!
     item(id: ID!): Item
 
-    csv(paranoid: Boolean = false): String!
+    csv(paranoid: Boolean = false): CSV!
 }
 
 type Mutation {
@@ -82,6 +82,11 @@ type PartItem {
     name: String!
     room: Room!
     checkedAt: Date
+}
+
+type CSV {
+    columns: [String!]!
+    rows: String!
 }
 
 input ItemInput {
