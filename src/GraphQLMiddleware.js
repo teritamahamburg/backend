@@ -138,8 +138,10 @@ class GraphQLMiddleware {
           roomId: room.id,
           editUserId: editUser.id,
         });
+
         return {
           success: true,
+          item,
         };
       },
       editItem: async (parent, { id, data }) => {
@@ -220,7 +222,7 @@ class GraphQLMiddleware {
         };
       },
       addPart: async (parent, { internalId, data }) => {
-        if (Object.keys(data).length <= 1) {
+        if (Object.keys(data).filter(k => !['editUser', 'createdAt'].includes(k)).length === 0) {
           return {
             success: false,
             message: 'change at least one',
@@ -259,7 +261,7 @@ class GraphQLMiddleware {
         };
         item.room = item.room.number;
         if (Object.keys(data)
-          .filter(k => k !== 'editUser')
+          .filter(k => !['editUser', 'createdAt'].includes(k))
           .every(k => data[k] === item[k])) {
           return {
             success: false,
@@ -284,6 +286,7 @@ class GraphQLMiddleware {
           internalId,
           partId: max + 1,
           deletedAt,
+          createdAt: data.createdAt,
         })).id;
         delete item.id;
         delete item.createdAt;
@@ -291,10 +294,13 @@ class GraphQLMiddleware {
         await this.db.itemHistories.create(item);
         return {
           success: true,
+          item: {
+            id: item.itemId,
+          },
         };
       },
       editPart: async (parent, { id, data }) => {
-        if (Object.keys(data).length <= 1) {
+        if (Object.keys(data).filter(k => !['editUser', 'createdAt'].includes(k)).length === 0) {
           return {
             success: false,
             message: 'change at least one',
@@ -330,7 +336,7 @@ class GraphQLMiddleware {
         item = item.dataValues.itemHistories[0].dataValues;
         item.room = item.room.number;
         if (Object.keys(data)
-          .filter(k => k !== 'editUser')
+          .filter(k => !['editUser', 'createdAt'].includes(k))
           .every(k => data[k] === item[k])) {
           return {
             success: false,

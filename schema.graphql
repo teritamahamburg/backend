@@ -6,12 +6,12 @@ type Query {
 }
 
 type Mutation {
-    addItem(data: ItemInput!): Result!
+    addItem(data: ItemInput!): ItemResult!
     editItem(id: ID!, data: EditItemInput!): Result!
     removeItems(ids: [ID!]!): Result! # share parts
     restoreItem(id: ID!): Result! # share parts
 
-    addPart(internalId: ID!, data: PartItemInput!): Result!
+    addPart(internalId: ID!, data: PartItemInput!): ItemResult!
     editPart(id: ID!, data: PartItemInput!): Result!
 }
 
@@ -37,6 +37,12 @@ type Room {
 type Result {
     success: Boolean!
     message: String
+}
+
+type ItemResult {
+    success: Boolean!
+    message: String
+    item: Item!
 }
 
 type Item {
@@ -71,7 +77,7 @@ type HistoryItem {
     checkedAt: Date
     disposalAt: Date
     depreciationAt: Date
-    createdAt: Date!
+    createdAt: DateTime!
 }
 
 type PartItem {
@@ -103,6 +109,8 @@ input ItemInput {
     disposalAt: Date
     depreciationAt: Date
     editUser: String!
+
+    createdAt: DateTime
 }
 
 input EditItemInput {
@@ -118,6 +126,9 @@ input PartItemInput {
     name: String
     room: Int
     checkedAt: Date
+
+    # editPart query don't use `createdAt`
+    createdAt: DateTime
 }
 
 enum ItemEnum {
