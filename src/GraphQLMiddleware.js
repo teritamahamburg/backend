@@ -94,11 +94,11 @@ class GraphQLMiddleware {
         let seal = null;
         // シールのダウンロード
         if (data.sealImage) {
-          await fs.promises.mkdir('public/seal', { recursive: true });
+          await fs.promises.mkdir('storage/seal', { recursive: true });
           const { filename, mimetype, createReadStream } = await data.sealImage;
 
           if (!mimetype.startsWith('image/')) return { success: false, message: 'seal must image' };
-          const dest = fs.createWriteStream(`public/seal/${internalId}${extname(filename)}`);
+          const dest = fs.createWriteStream(`storage/seal/${internalId}${extname(filename)}`);
           await new Promise((resolve) => {
             seal = extname(filename);
             createReadStream().pipe(dest).on('finish', resolve);
