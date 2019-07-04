@@ -8,6 +8,7 @@ type Query {
 type Mutation {
     addItem(data: ItemInput!): ItemResult!
     editItem(id: ID!, data: EditItemInput!): Result!
+    editItems(ids: [ID!]!, data: EditItemInput!): Result!
     removeItems(ids: [ID!]!): Result! # share parts
     restoreItem(id: ID!): Result! # share parts
 
