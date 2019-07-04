@@ -88,7 +88,7 @@ class GraphQLMiddleware {
   }
 
   get Mutation() {
-    return {
+    const self = {
       addItem: async (parent, { data }) => {
         const internalId = uuidv4();
         let seal = null;
@@ -143,6 +143,14 @@ class GraphQLMiddleware {
           success: true,
           item,
         };
+      },
+      editItems: async (parent, { ids, data }) => {
+        for (let i = 0; i < ids.length; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          const r = await self.editItem(parent, { id: ids[i], data });
+          if (!r.success) return r;
+        }
+        return { success: true };
       },
       editItem: async (parent, { id, data }) => {
         const len = Object.values(data)
@@ -391,6 +399,7 @@ class GraphQLMiddleware {
         };
       },
     };
+    return self;
   }
 
   get Item() {
