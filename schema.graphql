@@ -51,18 +51,16 @@ type Item {
     internalId: ID!
     partId: ID!
     seal: String
-    schoolName: String!
     name: String!
     code: String!
     amount: Int!
     purchasedAt: Date!
-    user: User!
+    admin: User!
     course: Course!
     checkedAt: Date
     room: Room!
     disposalAt: Date
     depreciationAt: Date
-    editUser: User!
     createdAt: DateTime!
     deletedAt: DateTime
 
@@ -74,7 +72,6 @@ type Item {
 type HistoryItem {
     id: ID!
     room: Room
-    editUser: User!
     checkedAt: Date
     disposalAt: Date
     depreciationAt: Date
@@ -85,7 +82,6 @@ type PartItem {
     id: ID!
     internalId: String!
     partId: String!
-    editUser: User!
     name: String!
     room: Room!
     checkedAt: Date
@@ -103,13 +99,12 @@ input ItemInput {
     code: String!
     amount: Int = 1
     purchasedAt: Date!
-    user: String!
+    admin: String!
     course: String!
     checkedAt: Date
     room: Int!
     disposalAt: Date
     depreciationAt: Date
-    editUser: String!
 
     createdAt: DateTime
 }
@@ -119,11 +114,9 @@ input EditItemInput {
     checkedAt: Date
     disposalAt: Date
     depreciationAt: Date
-    editUser: String!
 }
 
 input PartItemInput {
-    editUser: String!
     name: String
     room: Int
     checkedAt: Date

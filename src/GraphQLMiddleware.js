@@ -43,9 +43,7 @@ class GraphQLMiddleware {
         likes: search ? [
           ['name', `%${search}%`],
           ['code', `%${search}%`],
-          ['schoolName', `%${search}%`],
-          ['user.name', `%${search}%`],
-          ['editUser.name', `%${search}%`],
+          ['admin.name', `%${search}%`],
           ['course.name', `%${search}%`],
           ['room.number', `%${search}%`],
         ] : [],
@@ -66,11 +64,7 @@ class GraphQLMiddleware {
               include: [
                 {
                   model: this.db.users,
-                  as: 'user',
-                },
-                {
-                  model: this.db.users,
-                  as: 'editUser',
+                  as: 'admin',
                 },
                 this.db.rooms,
                 this.db.courses,
@@ -106,13 +100,9 @@ class GraphQLMiddleware {
         }
 
         // 事前準備(他テーブルに必要なデータを追加)
-        const user = (await this.db.users.findOrCreate({
-          where: { name: data.user },
-          defaults: { name: data.user },
-        }))[0];
-        const editUser = data.user === data.editUser ? user : (await this.db.users.findOrCreate({
-          where: { name: data.editUser },
-          defaults: { name: data.editUser },
+        const admin = (await this.db.users.findOrCreate({
+          where: { name: data.admin },
+          defaults: { name: data.admin },
         }))[0];
         const room = (await this.db.rooms.findOrCreate({
           where: { number: data.room },
@@ -133,10 +123,9 @@ class GraphQLMiddleware {
         await this.db.itemHistories.create({
           itemId: item.id,
           ...data,
-          userId: user.id,
+          adminId: admin.id,
           courseId: course.id,
           roomId: room.id,
-          editUserId: editUser.id,
         });
 
         return {
@@ -156,7 +145,7 @@ class GraphQLMiddleware {
         const len = Object.values(data)
           .filter(v => v !== undefined)
           .length;
-        if (len <= 1) { // 1 = editUser
+        if (len <= 0) {
           return {
             success: false,
             message: 'edit param needs at least 1',
@@ -190,11 +179,6 @@ class GraphQLMiddleware {
             edit[key] = data[key];
           }
         });
-        edit.editUserId = (await this.db.users.findOrCreate({
-          where: { name: edit.editUser },
-          defaults: { name: edit.editUser },
-        }))[0].id;
-        delete edit.editUser;
         if (edit.room) {
           edit.roomId = (await this.db.rooms.findOrCreate({
             where: { number: edit.room },
@@ -230,7 +214,7 @@ class GraphQLMiddleware {
         };
       },
       addPart: async (parent, { internalId, data }) => {
-        if (Object.keys(data).filter(k => !['editUser', 'createdAt'].includes(k)).length === 0) {
+        if (Object.keys(data).filter(k => !['createdAt'].includes(k)).length === 0) {
           return {
             success: false,
             message: 'change at least one',
@@ -251,7 +235,6 @@ class GraphQLMiddleware {
               limit: 1,
               order: [['id', 'desc']],
               include: [
-                { model: this.db.users, as: 'editUser' },
                 this.db.rooms,
               ],
             },
@@ -269,18 +252,12 @@ class GraphQLMiddleware {
         };
         item.room = item.room.number;
         if (Object.keys(data)
-          .filter(k => !['editUser', 'createdAt'].includes(k))
+          .filter(k => !['createdAt'].includes(k))
           .every(k => data[k] === item[k])) {
           return {
             success: false,
             message: 'part data not change',
           };
-        }
-        if (item.editUser.name !== data.editUser) {
-          item.editUserId = (await this.db.users.findOrCreate({
-            where: { name: data.editUser },
-            defaults: { name: data.editUser },
-          }))[0].id;
         }
         item.name = data.name || item.name;
         if (item.room.number !== data.room) {
@@ -308,7 +285,7 @@ class GraphQLMiddleware {
         };
       },
       editPart: async (parent, { id, data }) => {
-        if (Object.keys(data).filter(k => !['editUser', 'createdAt'].includes(k)).length === 0) {
+        if (Object.keys(data).filter(k => !['createdAt'].includes(k)).length === 0) {
           return {
             success: false,
             message: 'change at least one',
@@ -323,7 +300,6 @@ class GraphQLMiddleware {
               limit: 1,
               order: [['id', 'desc']],
               include: [
-                { model: this.db.users, as: 'editUser' },
                 this.db.rooms,
               ],
             },
@@ -344,18 +320,12 @@ class GraphQLMiddleware {
         item = item.dataValues.itemHistories[0].dataValues;
         item.room = item.room.number;
         if (Object.keys(data)
-          .filter(k => !['editUser', 'createdAt'].includes(k))
+          .filter(k => !['createdAt'].includes(k))
           .every(k => data[k] === item[k])) {
           return {
             success: false,
             message: 'part data not change',
           };
-        }
-        if (item.editUser.name !== data.editUser) {
-          item.editUserId = (await this.db.users.findOrCreate({
-            where: { name: data.editUser },
-            defaults: { name: data.editUser },
-          }))[0].id;
         }
         item.name = data.name || item.name;
         if (item.room.number !== data.room) {
@@ -409,10 +379,6 @@ class GraphQLMiddleware {
         where: { itemId: id },
         order: [['id', 'desc']],
         include: [
-          {
-            model: this.db.users,
-            as: 'editUser',
-          },
           this.db.rooms,
         ],
       }),
@@ -433,11 +399,7 @@ class GraphQLMiddleware {
               include: [
                 {
                   model: this.db.users,
-                  as: 'user',
-                },
-                {
-                  model: this.db.users,
-                  as: 'editUser',
+                  as: 'admin',
                 },
                 this.db.rooms,
                 this.db.courses,

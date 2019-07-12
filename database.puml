@@ -78,18 +78,16 @@ Table(item_histories) {
     primary_key(id) integer
     ---
     foreign_key(not_null(itemId)): integer
-    not_null(schoolName) varchar[255]
     not_null(name) varchar[255]
     not_null(code) varchar[255]
     not_null(amount) integer
     not_null(purchasedAt) date
-    foreign_key(not_null(userId)) integer
+    foreign_key(not_null(adminId)) integer
     foreign_key(not_null(courseId)) integer
     not_null(checkedAt) date
     foreign_key(not_null(roomId)) integer
     not_null(disposalAt) date
     not_null(depreciationAt) date
-    foreign_key(not_null(editUserId)) integer
     ---
     not_null(createdAt) datetime
     not_null(updatedAt) datetime

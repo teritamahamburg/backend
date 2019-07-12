@@ -4,10 +4,6 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
     },
-    schoolName: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
     name: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -24,7 +20,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATEONLY,
       allowNull: false,
     },
-    userId: {
+    adminId: {
       type: DataTypes.INTEGER,
       allowNull: false,
     },
@@ -48,10 +44,6 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATEONLY,
       allowNull: true,
     },
-    editUserId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
   }, {});
   itemHistories.associate = ({
     rooms,
@@ -61,12 +53,8 @@ module.exports = (sequelize, DataTypes) => {
   }) => {
     itemHistories.belongsTo(items, { foreignKey: 'itemId' });
     itemHistories.belongsTo(users, {
-      as: 'user',
-      foreignKey: 'userId',
-    });
-    itemHistories.belongsTo(users, {
-      as: 'editUser',
-      foreignKey: 'editUserId',
+      as: 'admin',
+      foreignKey: 'adminId',
     });
     itemHistories.belongsTo(courses, { foreignKey: 'courseId' });
     itemHistories.belongsTo(rooms, { foreignKey: 'roomId' });
