@@ -2,6 +2,8 @@ type Query {
     items(sort: [[String!]!] = [["id", "asc"]], search: String, itemEnum: ItemEnum = NORMAL): [Item!]!
     item(id: ID!): Item
 
+    users: [User!]!
+
     csv(paranoid: Boolean = false): CSV!
 }
 

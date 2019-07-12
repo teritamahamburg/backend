@@ -78,6 +78,7 @@ class GraphQLMiddleware {
         }) : undefined;
       },
       csv: paranoid => this.db.queries.csv({ paranoid }),
+      users: () => this.db.users.findAll(),
     };
   }
 
