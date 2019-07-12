@@ -110,6 +110,7 @@ input ItemInput {
 }
 
 input EditItemInput {
+    sealImage: Upload
     room: Int
     checkedAt: Date
     disposalAt: Date

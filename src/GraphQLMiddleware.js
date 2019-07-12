@@ -173,6 +173,24 @@ class GraphQLMiddleware {
             message: 'item is part',
           };
         }
+        let seal = null;
+        // シールのダウンロード
+        if (data.sealImage) {
+          await fs.promises.mkdir('storage/seal', { recursive: true });
+          const { filename, mimetype, createReadStream } = await data.sealImage;
+
+          if (!mimetype.startsWith('image/')) return { success: false, message: 'seal must image' };
+          const dest = fs.createWriteStream(`storage/seal/${item.internalId}${extname(filename)}`);
+          await new Promise((resolve) => {
+            seal = extname(filename);
+            createReadStream().pipe(dest).on('finish', resolve);
+          });
+        }
+        if (item.seal !== seal) {
+          await this.db.items.update({ seal }, {
+            where: { id },
+          });
+        }
         const edit = {};
         Object.keys(data).forEach((key) => {
           if (data[key] !== undefined) {
@@ -186,6 +204,7 @@ class GraphQLMiddleware {
           }))[0].id;
           delete edit.room;
         }
+        delete edit.sealImage;
         await this.db.itemHistories.create({
           ...item.dataValues.itemHistories[0].dataValues,
           ...edit,
