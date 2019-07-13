@@ -8,19 +8,30 @@ type Query {
 }
 
 type Mutation {
-    addItem(data: ItemInput!): ItemResult!
+    addItem(data: ItemInput!): Result!
+    addItems(data: [ItemInput!]!): Result!
     editItem(id: ID!, data: EditItemInput!): Result!
     editItems(ids: [ID!]!, data: EditItemInput!): Result!
-    removeItems(ids: [ID!]!): Result! # share parts
-    restoreItem(id: ID!): Result! # share parts
+    removeItems(ids: [ID!]!): Result!
+    restoreItem(id: ID!): Result!
 
-    addPart(internalId: ID!, data: PartItemInput!): ItemResult!
-    editPart(id: ID!, data: PartItemInput!): Result!
+    # [always added] addChild(internalId: ID!, data: ChildItemInput!): ItemResult!
+    editChild(childId: ID!, data: EditChildItemInput!): Result!
+    editChildren(childIds: [ID!]!, data: EditChildItemInput!): Result!
+    removeChildren(childIds: [ID!]!): Result!
+    restoreChild(childId: ID!): Result!
 }
 
 scalar Date
 scalar Time
 scalar DateTime
+# scalar Upload
+
+enum ItemEnum {
+    ONLY_DELETED,
+    ALL,
+    NORMAL,
+}
 
 type User {
     id: ID!
@@ -42,51 +53,66 @@ type Result {
     message: String
 }
 
-type ItemResult {
-    success: Boolean!
-    message: String
-    item: Item!
-}
-
 type Item {
+    # items Table
     id: ID!
-    internalId: ID!
-    partId: ID!
-    seal: String
     name: String!
     code: String!
     amount: Int!
-    purchasedAt: Date!
     admin: User!
     course: Course!
-    checkedAt: Date
-    room: Room!
-    disposalAt: Date
-    depreciationAt: Date
+    purchasedAt: Date!
+
     createdAt: DateTime!
     deletedAt: DateTime
 
-    histories: [HistoryItem!]!
+    # itemsHistories Table
+    room: Room!
+    seal: String
+    checkedAt: Date
+    disposalAt: Date
+    depreciationAt: Date
 
-    parts: [PartItem!]!
+    # Option
+    histories: [HistoryItem!]!
+    children: [ChildItem!]!
 }
 
 type HistoryItem {
     id: ID!
-    room: Room
+    room: Room!
+    seal: String
     checkedAt: Date
     disposalAt: Date
     depreciationAt: Date
+
     createdAt: DateTime!
 }
 
-type PartItem {
+type ChildItem {
     id: ID!
-    internalId: String!
-    partId: String!
+    itemId: ID!
+    childId: ID!
     name: String!
-    room: Room!
+    room: Room
     checkedAt: Date
+
+    createdAt: DateTime!
+    deletedAt: DateTime
+
+    histories: [HistoryChildItem!]!
+}
+
+type HistoryChildItem {
+    id: ID!
+    itemId: ID!
+    childId: ID!
+    name: String!
+    room: Room
+    checkedAt: Date
+
+    createdAt: DateTime!
+    deletedAt: DateTime
 }
 
 type CSV {
@@ -95,16 +121,18 @@ type CSV {
 }
 
 input ItemInput {
-    sealImage: Upload
-    schoolName: String = "ss"
+    # items
     name: String!
     code: String!
     amount: Int = 1
-    purchasedAt: Date!
     admin: String!
     course: String!
-    checkedAt: Date
+    purchasedAt: Date!
+
+    # itemHistories
     room: Int!
+    seal: Upload
+    checkedAt: Date
     disposalAt: Date
     depreciationAt: Date
 
@@ -112,24 +140,25 @@ input ItemInput {
 }
 
 input EditItemInput {
-    sealImage: Upload
     room: Int
+    seal: Upload
     checkedAt: Date
     disposalAt: Date
     depreciationAt: Date
 }
 
-input PartItemInput {
+# input ChildItemInput {
+#     name: String
+#     room: Int
+#     checkedAt: Date
+#
+#     createdAt: DateTime
+# }
+
+input EditChildItemInput {
     name: String
     room: Int
     checkedAt: Date
 
-    # editPart query don't use `createdAt`
     createdAt: DateTime
-}
-
-enum ItemEnum {
-    ONLY_DELETED,
-    ALL,
-    NORMAL,
 }

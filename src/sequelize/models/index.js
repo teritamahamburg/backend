@@ -32,19 +32,52 @@ db.Sequelize = Sequelize;
 
 // TODO: replace sequelize query
 db.queries = {
+  selectQuery: `
+    SELECT __SELECT__
+FROM (SELECT item.id,
+             item.name,
+             item.code,
+             item.amount,
+             admin.id       AS \`admin.id\`,
+             admin.name     AS \`admin.name\`,
+             course.id     AS \`course.id\`,
+             course.name   AS \`course.name\`,
+             item.purchasedAt,
+             item.createdAt,
+             item.deletedAt,
+             hist.seal,
+             room.id       AS \`room.id\`,
+             room.number   AS \`room.number\`,
+             hist.checkedAt,
+             hist.disposalAt,
+             hist.depreciationAt
+      FROM (SELECT MAX(ih.id) AS m FROM itemHistories AS ih GROUP BY ih.itemId) AS m
+               JOIN itemHistories AS hist ON m.m = hist.id
+               JOIN rooms AS room ON hist.roomId = room.id
+               JOIN items item ON hist.itemId = item.id
+               JOIN users AS admin ON item.adminId = admin.id
+               JOIN courses AS course ON item.courseId = course.id)
+    `.replace(/\n/g, ' ').replace(/ +/g, ' '),
+  children(itemId) {
+    const query = 'SELECT * FROM (SELECT MAX(id) AS i FROM childHistories WHERE itemId = ? GROUP BY childId) AS c JOIN childHistories AS child ON c.i = child.id;';
+    return db.sequelize.query(query, {
+      type: Sequelize.QueryTypes.SELECT,
+      replacements: [itemId],
+    }).then(transform).then(items => items.map((item) => {
+      /* eslint-disable no-param-reassign */
+      item.createdAt = new Date(item.createdAt);
+      if (item.deletedAt) item.deletedAt = new Date(item.deletedAt);
+      return item;
+    }));
+  },
   items({
     orders = [],
     likes = [],
     itemEnum = 'NORMAL', // [NORMAL, ALL, ONLY_DELETED]
-    part = false,
   }) {
-    let query = 'SELECT * FROM (SELECT `i2`.`id`,`i2`.`internalId`,`i2`.`partId`,`i2`.`seal`,`i`.`schoolName`,`i`.`name`,`i`.`code`,`i`.`amount`,`i`.`purchasedAt`,`i`.`userId`,`i`.`courseId`,`i`.`checkedAt`,`i`.`roomId`,`i`.`disposalAt`,`i`.`depreciationAt`,`i`.`editUserId`,`i`.`createdAt`,`i2`.`deletedAt`,`user`.`id` AS `user.id`,`user`.`name` AS `user.name`,`editUser`.`id` AS `editUser.id`,`editUser`.`name` AS `editUser.name`,`room`.`id` AS `room.id`,`room`.`number` AS `room.number`,`course`.`id` AS `course.id`,`course`.`name` AS `course.name` FROM (SELECT MAX(ih.id) AS m FROM itemHistories AS ih GROUP BY ih.itemId) AS m  JOIN itemHistories AS i ON m.m = i.id  JOIN users AS user ON i.userId = user.id  JOIN users AS editUser ON i.editUserId = editUser.id  JOIN rooms AS room ON i.roomId = room.id  JOIN courses AS course ON i.courseId = course.id  JOIN items i2 ON i.itemId = i2.id)';
+    let query = db.queries.selectQuery.replace('__SELECT__', '*');
     const replacements = [];
     let where = false;
-    if (!part) {
-      query += ' WHERE partId = 0';
-      where = true;
-    }
     if (itemEnum !== 'ALL') {
       query += `${where ? ' AND ' : ' WHERE '}deletedAt IS${itemEnum === 'NORMAL' ? '' : ' NOT'} NULL`;
       where = true;
@@ -67,6 +100,7 @@ db.queries = {
       replacements,
     }).then(transform).then(items => items.map((item) => {
       /* eslint-disable no-param-reassign */
+      item.purchasedAt = new Date(item.purchasedAt);
       item.createdAt = new Date(item.createdAt).toISOString();
       if (item.deletedAt) item.deletedAt = new Date(item.deletedAt).toISOString();
       return item;
@@ -75,12 +109,17 @@ db.queries = {
   csv({
     paranoid = false,
   }) {
-    const query = 'SELECT \'"\' || id || \'","\' || internalId || \'","\' || partId || \'","\' || ifnull(seal, \'\') || \'","\' || replace(schoolName, \'"\', \'""\') || \'","\' || replace(name, \'"\', \'""\') || \'","\' || replace(code, \'"\', \'""\') || \'","\' || amount || \'","\' || user || \'","\' || edituser || \'","\' || room || \'","\' || course || \'","\' || purchasedAt || \'","\' || ifnull(checkedAt, \'\') || \'","\' || ifnull(disposalAt, \'\') || \'","\' || ifnull(depreciationAt, \'\') || \'","\' || createdAt || \'","\' || ifnull(deletedAt, \'\') || \'"\' as row FROM (SELECT `i2`.`id`, `i2`.`internalId`, `i2`.`partId`, `i2`.`seal`, `i`.`schoolName`, `i`.`name`, `i`.`code`, `i`.`amount`, `i`.`purchasedAt`, `i`.`userId`, `i`.`courseId`, `i`.`checkedAt`, `i`.`roomId`, `i`.`disposalAt`, `i`.`depreciationAt`, `i`.`editUserId`, `i`.`createdAt`, `i2`.`deletedAt`, `user`.`name`     AS `user`, `editUser`.`name` AS `editUser`, `room`.`number`   AS `room`, `course`.`name`   AS `course` FROM (SELECT MAX(ih.id) AS m FROM itemHistories AS ih GROUP BY ih.itemId) AS m JOIN itemHistories AS i ON m.m = i.id JOIN users AS user ON i.userId = user.id JOIN users AS editUser ON i.editUserId = editUser.id JOIN rooms AS room ON i.roomId = room.id JOIN courses AS course ON i.courseId = course.id JOIN items i2 ON i.itemId = i2.id)';
+    // TODO: children is not includes.
+    const query = db.queries.selectQuery.replace('__SELECT__',
+      `'"' || id || '","' || ifnull(seal, '') || '","' || '","' || replace(name, '"', '""') || '","' || replace(code, '"', '""') ||
+       '","' || amount || '","' || \`admin.name\` || '","' || \`course.name\` || '","' || \`room.number\` || '","' ||
+        purchasedAt || '","' || ifnull(checkedAt, '') || '","' || ifnull(disposalAt, '') || '","' ||
+       ifnull(depreciationAt, '') || '","' || createdAt || '","' || ifnull(deletedAt, '') || '"' as row`);
     return db.sequelize.query(`${query}${paranoid ? '' : ' WHERE deletedAt IS NULL'} ORDER BY id;`, {
       type: db.Sequelize.QueryTypes.SELECT,
     }).then(rows => rows.map(({ row }) => row).join('\n'))
       .then(rows => ({
-        columns: ['id', 'internalId', 'partId', 'seal', 'schoolName', 'name', 'code', 'amount', 'user', 'editUser', 'room', 'course', 'purchasedAt', 'checkedAt', 'disposalAt', 'depreciationAt', 'createdAt', 'deletedAt'],
+        columns: ['id', 'seal', 'name', 'code', 'amount', 'admin', 'course', 'room', 'purchasedAt', 'checkedAt', 'disposalAt', 'depreciationAt', 'createdAt', 'deletedAt'],
         rows,
       }));
   },
@@ -91,6 +130,7 @@ db.queries = {
  * @typedef {object} DB
  * @prop {object} items
  * @prop {object} itemHistories
+ * @prop {object} childHistories
  * @prop {object} users
  * @prop {object} rooms
  * @prop {object} courses

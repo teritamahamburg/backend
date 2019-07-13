@@ -4,15 +4,15 @@ skinparam linetype ortho
 skinparam shadowing false
 skinparam shadowing<<with_shadow>> true
 
-!define Table(name) class name<<table>> << (T,#add1b2) >>
-!define primary_key(x) <b>x</b>
-!define foreign_key(x) <i>x</i>
-!define unique(x) <color:green>x</color>
-!define unique_key(x) <color:blue>x</color>
-!define not_null(x) <u>x</u>
-' other tags available:
-' <back:COLOR></color>, where color is a color name or html color code
-' see: http://plantuml.com/classes.html#More
+!unquoted function Table($name) return "class " + $name + " <<table>> << (T,#add1b2) >>"
+!unquoted function primary_key(x) return "<b>" + x + "</b>"
+!unquoted function foreign_key(x) return "<i>" + x + "</i>"
+!unquoted function unique(x) return "<color:green>" + x + "</color>"
+!unquoted function unique_key(x) return "<color:blue>" + x + "</color>"
+!unquoted function $not_null(x) return "<u>" + x + "</u>"
+!unquoted function unique_not_null(x) return "<color:green><u>" + x + "</u></color>"
+!unquoted function foreign_key_not_null(x) return "<i><u>" + x + "</u></i>"
+!unquoted function unique_foreign_key_not_null(x) return "<color:green><i><u>" + x + "</u></i><color:green>"
 
 skinparam class {
     ArrowColor #0d0d88
@@ -28,10 +28,10 @@ hide methods
 hide stereotypes
 
 ' entities
-Table(details)<<with_shadow>> {
+Table(details) <<with_shadow>> {
     primary_key(PRIMARY KEY)
     foreign_key(FOREIGN KEY)
-    not_null(NOT NULL)
+    $not_null(NOT NULL)
     unique(UNIQUE)
     unique_key(UNIQUE_KEY)
 }
@@ -39,63 +39,78 @@ Table(details)<<with_shadow>> {
 Table(users) {
     primary_key(id) integer
     ---
-    unique(not_null(name)) varchar[255]
+    unique_not_null(name) varchar[255]
     ---
-    not_null(createdAt) datetime
-    not_null(updatedAt) datetime
+    $not_null(createdAt) datetime
+    $not_null(updatedAt) datetime
 }
 
 Table(rooms) {
     primary_key(id) integer
     ---
-    unique(not_null(number)) integer
+    unique_not_null(number) integer
     ---
-    not_null(createdAt) datetime
-    not_null(updatedAt) datetime
+    $not_null(createdAt) datetime
+    $not_null(updatedAt) datetime
 }
 
 Table(courses) {
     primary_key(id) integer
     ---
-    unique(not_null(name)) varchar[255]
+    unique_not_null(name) varchar[255]
     ---
-    not_null(createdAt) datetime
-    not_null(updatedAt) datetime
+    $not_null(createdAt) datetime
+    $not_null(updatedAt) datetime
 }
 
 Table(items) {
     primary_key(id) integer
+    --
+    $not_null(name) varchar[255]
+    unique_not_null(code)unique_key([code]) varchar[255]
+    $not_null(amount) integer
+    foreign_key_not_null(adminId) integer
+    foreign_key_not_null(courseId) integer
+    $not_null(purchasedAt) date
     ---
-    unique(not_null(internalId))unique_key([id]) varchar[255]
-    unique(not_null(partId))unique_key([id]) integer
-    ---
-    not_null(createdAt) datetime
-    not_null(updatedAt) datetime
-    deletedAt datetime
+    $not_null(createdAt) datetime
+    $not_null(updatedAt) datetime
+    deletedAt datatime
 }
 
 Table(item_histories) {
     primary_key(id) integer
     ---
-    foreign_key(not_null(itemId)): integer
-    not_null(name) varchar[255]
-    not_null(code) varchar[255]
-    not_null(amount) integer
-    not_null(purchasedAt) date
-    foreign_key(not_null(adminId)) integer
-    foreign_key(not_null(courseId)) integer
-    not_null(checkedAt) date
-    foreign_key(not_null(roomId)) integer
-    not_null(disposalAt) date
-    not_null(depreciationAt) date
+    foreign_key_not_null(itemId) integer
+    foreign_key_not_null(roomId) integer
+    seal varchar[255]
+    checkedAt date
+    disposalAt date
+    depreciationAt date
     ---
-    not_null(createdAt) datetime
-    not_null(updatedAt) datetime
+    $not_null(createdAt) datetime
+    $not_null(updatedAt) datetime
+}
+
+Table(child_histories) {
+    primary_key(id) integer
+    ---
+    foreign_key_not_null(itemId) integer
+    $not_null(childId) integer
+    name varchar[255]
+    foreign_key(roomId) integer
+    checkedAt date
+    ---
+    $not_null(createdAt) datetime
+    $not_null(updatedAt) datetime
+    deletedAt datetime
 }
 
 ' relations
 items --|{ item_histories: itemId:id
-item_histories }o-- users: userId:id\neditUserId:id
+items --|{ child_histories: itemId:id
+items }o-- users: adminId:id
+items }o-- courses: courseId:id
 item_histories }o-- rooms: roomId:id
-item_histories }o-- courses: courseId:id
+child_histories }o-- rooms: roomId:id
 @enduml
