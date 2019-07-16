@@ -90,7 +90,32 @@ class GraphQLMiddleware {
           ...item.dataValues,
         }) : undefined;
       },
-      csv: paranoid => this.db.queries.csv({ paranoid }),
+      children: (parent, { search, childEnum }) => {
+        return this.db.queries.children({
+          childEnum,
+          likes: search ? [
+            ['name', `%${search}%`],
+            ['room.number', `%${search}%`],
+          ] : [],
+        }).then(children => children.map((child) => {
+          /* eslint-disable no-param-reassign */
+          child.internalId = child.id;
+          child.id = util.concatId(child.itemId, child.childId);
+          return child;
+        }));
+      },
+      child: async (parent, { childId: id }) => {
+        const [itemId, childId] = util.splitId(id);
+        return this.db.childHistories.findOne({
+          where: {
+            itemId,
+            childId,
+          },
+          order: [['id', 'desc']],
+          limit: 1,
+        });
+      },
+      csv: (parent, { paranoid }) => this.db.queries.csv({ paranoid }),
       users: () => this.db.users.findAll(),
     };
   }
@@ -153,7 +178,7 @@ class GraphQLMiddleware {
         }
 
         // 実データ挿入
-        await this.db.itemHistories.create({
+        const itemHistory = await this.db.itemHistories.create({
           itemId: item.id,
           roomId: room.id,
           seal,
@@ -164,6 +189,10 @@ class GraphQLMiddleware {
 
         return {
           success: true,
+          item: {
+            ...itemHistory.dataValues,
+            ...item.dataValues,
+          },
         };
       },
       addItems: async (parent, { data }) => {
@@ -226,7 +255,7 @@ class GraphQLMiddleware {
           }))[0].id;
           delete edit.room;
         }
-        edit.seal = seal;
+        if (seal) edit.seal = seal;
         await this.db.itemHistories.create({
           ...item.dataValues.itemHistories[0].dataValues,
           ...edit,
@@ -381,7 +410,7 @@ class GraphQLMiddleware {
         }
         await this.db.childHistories.restore({
           where: {
-            id: children.map(({ id }) => id),
+            id: children.map(c => c.id),
           },
         });
         return {
@@ -394,18 +423,22 @@ class GraphQLMiddleware {
 
   get Item() {
     return {
-      histories: async ({ id }) => this.db.itemHistories.findAll({
-        where: { itemId: id },
-        order: [['id', 'desc']],
-        include: [
-          this.db.rooms,
-        ],
-      }),
-      children: async ({ id, name }) => {
-        const children = await this.db.queries.children(id);
+      histories: async ({ id }) => {
+        const items = await this.db.itemHistories.findAll({
+          where: { itemId: id },
+          order: [['id', 'desc']],
+          include: [
+            this.db.rooms,
+          ],
+        });
+        return items.slice(1);
+      },
+      children: async ({ id }) => {
+        const children = await this.db.queries.children({ itemId: id });
         return children.map(child => ({
           ...child,
-          name: child.name || name,
+          id: util.concatId(id, child.childId),
+          internalId: child.id,
         }));
       },
     };
@@ -413,7 +446,7 @@ class GraphQLMiddleware {
 
   get ChildItem() {
     return {
-      histories: async ({ itemId, childId, name }) => {
+      histories: async ({ itemId, childId }) => {
         const children = await this.db.childHistories.findAll({
           where: {
             itemId,
@@ -423,11 +456,13 @@ class GraphQLMiddleware {
             ['id', 'desc'],
           ],
         });
-        return children.map(child => ({
+        return children.slice(1).map(child => ({
           ...child.dataValues,
-          name: child.name || name,
+          id: util.concatId(itemId, child.childId),
+          internalId: child.id,
         }));
       },
+      item: ({ itemId }) => this.Query.item(undefined, { id: itemId }),
     };
   }
 

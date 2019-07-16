@@ -2,13 +2,16 @@ type Query {
     items(sort: [[String!]!] = [["id", "asc"]], search: String, itemEnum: ItemEnum = NORMAL): [Item!]!
     item(id: ID!): Item
 
+    children(search: String, childEnum: ChildEnum = NORMAL): [ChildItem!]!
+    child(childId: ID!): ChildItem
+
     users: [User!]!
 
     csv(paranoid: Boolean = false): CSV!
 }
 
 type Mutation {
-    addItem(data: ItemInput!): Result!
+    addItem(data: ItemInput!): ItemResult!
     addItems(data: [ItemInput!]!): Result!
     editItem(id: ID!, data: EditItemInput!): Result!
     editItems(ids: [ID!]!, data: EditItemInput!): Result!
@@ -33,6 +36,11 @@ enum ItemEnum {
     NORMAL,
 }
 
+enum ChildEnum {
+    ONLY_DELETED,
+    NORMAL,
+}
+
 type User {
     id: ID!
     name: String!
@@ -51,6 +59,12 @@ type Room {
 type Result {
     success: Boolean!
     message: String
+}
+
+type ItemResult {
+    success: Boolean!
+    message: String
+    item: Item
 }
 
 type Item {
@@ -90,10 +104,11 @@ type HistoryItem {
 }
 
 type ChildItem {
+    internalId: ID!
     id: ID!
     itemId: ID!
     childId: ID!
-    name: String!
+    name: String
     room: Room
     checkedAt: Date
 
@@ -101,13 +116,16 @@ type ChildItem {
     deletedAt: DateTime
 
     histories: [HistoryChildItem!]!
+
+    item: Item!
 }
 
 type HistoryChildItem {
+    internalId: ID!
     id: ID!
     itemId: ID!
     childId: ID!
-    name: String!
+    name: String
     room: Room
     checkedAt: Date
 
