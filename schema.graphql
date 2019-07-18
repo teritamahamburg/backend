@@ -12,15 +12,15 @@ type Query {
 
 type Mutation {
     addItem(data: ItemInput!): ItemResult!
-    addItems(data: [ItemInput!]!): Result!
+    addItems(data: [ItemInput!]!): [ItemResult!]!
     editItem(id: ID!, data: EditItemInput!): Result!
-    editItems(ids: [ID!]!, data: EditItemInput!): Result!
+    editItems(ids: [ID!]!, data: EditItemInput!): [Result!]!
     removeItems(ids: [ID!]!): Result!
     restoreItem(id: ID!): Result!
 
     # [always added] addChild(internalId: ID!, data: ChildItemInput!): ItemResult!
     editChild(childId: ID!, data: EditChildItemInput!): Result!
-    editChildren(childIds: [ID!]!, data: EditChildItemInput!): Result!
+    editChildren(childIds: [ID!]!, data: EditChildItemInput!): [Result!]!
     removeChildren(childIds: [ID!]!): Result!
     restoreChild(childId: ID!): Result!
 }

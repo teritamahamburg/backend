@@ -7,6 +7,7 @@
     "serve": "nodemon --watch src --watch ./schema.graphql --ext js,graphql --exec \"webpack --mode development --display none & node dist\"",
     "build": "webpack --mode production",
     "start": "node dist",
+    "start:test": "cross-env NODE_ENV=test npm run start",
     "db:migrate": "sequelize db:migrate --config src/sequelize/config/config.js --migrations-path src/sequelize/migrations --seeders-path src/sequelize/seeders --models-path src/sequelize/models"
   },
   "author": "",
@@ -32,6 +33,7 @@
     "@babel/core": "^7.5.4",
     "@babel/preset-env": "^7.5.4",
     "babel-loader": "^8.0.6",
+    "cross-env": "^5.2.0",
     "eslint": "^6.0.1",
     "eslint-config-airbnb-base": "^13.2.0",
     "eslint-plugin-import": "^2.18.0",

@@ -27,6 +27,34 @@ const util = {
   },
 };
 
+const mapAsync = (arr, cb) => {
+  const result = [];
+  let p = Promise.resolve();
+  arr.forEach((a) => {
+    p = p.then(async () => {
+      const data = await cb(a);
+      result.push(data);
+    });
+  });
+  return p.then(() => Promise.resolve(result));
+};
+
+const convertDate = (date) => {
+  if (!date) return null;
+  let d = date;
+  if (typeof d === 'string') {
+    d = new Date(date);
+  }
+  return d.toISOString().substring(0, 10);
+};
+
+const itemToQL = item => (item ? ({
+  ...item,
+  checkedAt: convertDate(item.checkedAt),
+  disposalAt: convertDate(item.disposalAt),
+  depreciationAt: convertDate(item.depreciationAt),
+}) : undefined);
+
 class GraphQLMiddleware {
   constructor(database) {
     const {
@@ -64,7 +92,7 @@ class GraphQLMiddleware {
           .filter(s => itemsSortProperties.includes(s[0]))
           .map(([col, order]) => [col, order === 'asc' ? 'asc' : 'desc']),
         itemEnum,
-      }),
+      }).then(items => items.map(i => itemToQL(i))),
       item: async (parent, { id }) => {
         const item = await this.db.items.findOne({
           paranoid: false,
@@ -85,25 +113,23 @@ class GraphQLMiddleware {
             },
           ],
         });
-        return item ? ({
+        return item ? itemToQL({
           ...item.itemHistories[0].dataValues,
           ...item.dataValues,
         }) : undefined;
       },
-      children: (parent, { search, childEnum }) => {
-        return this.db.queries.children({
-          childEnum,
-          likes: search ? [
-            ['name', `%${search}%`],
-            ['room.number', `%${search}%`],
-          ] : [],
-        }).then(children => children.map((child) => {
-          /* eslint-disable no-param-reassign */
-          child.internalId = child.id;
-          child.id = util.concatId(child.itemId, child.childId);
-          return child;
-        }));
-      },
+      children: (parent, { search, childEnum }) => this.db.queries.children({
+        childEnum,
+        likes: search ? [
+          ['name', `%${search}%`],
+          ['room.number', `%${search}%`],
+        ] : [],
+      }).then(children => children.map((child) => {
+        /* eslint-disable no-param-reassign */
+        child.internalId = child.id;
+        child.id = util.concatId(child.itemId, child.childId);
+        return itemToQL(child);
+      })),
       child: async (parent, { childId: id }) => {
         const [itemId, childId] = util.splitId(id);
         return this.db.childHistories.findOne({
@@ -113,7 +139,7 @@ class GraphQLMiddleware {
           },
           order: [['id', 'desc']],
           limit: 1,
-        });
+        }).then(c => itemToQL(c.dataValues));
       },
       csv: (parent, { paranoid }) => this.db.queries.csv({ paranoid }),
       users: () => this.db.users.findAll(),
@@ -189,20 +215,16 @@ class GraphQLMiddleware {
 
         return {
           success: true,
-          item: {
+          item: itemToQL({
             ...itemHistory.dataValues,
             ...item.dataValues,
-          },
+          }),
         };
       },
-      addItems: async (parent, { data }) => {
-        for (let i = 0; i < data.length; i += 1) {
-          // eslint-disable-next-line no-await-in-loop
-          const r = await self.addItem(parent, data[i]);
-          if (!r.success) return r;
-        }
-        return { success: true };
-      },
+      addItems: (parent, { data }) => mapAsync(
+        data,
+        d => self.addItem(parent, { data: d }),
+      ),
       editItem: async (parent, { id, data }) => {
         const len = Object.values(data)
           .filter(v => v !== undefined)
@@ -267,14 +289,10 @@ class GraphQLMiddleware {
           success: true,
         };
       },
-      editItems: async (parent, { ids, data }) => {
-        for (let i = 0; i < ids.length; i += 1) {
-          // eslint-disable-next-line no-await-in-loop
-          const r = await self.editItem(parent, { id: ids[i], data });
-          if (!r.success) return r;
-        }
-        return { success: true };
-      },
+      editItems: (parent, { ids, data }) => mapAsync(
+        ids,
+        id => self.editItem(parent, { id, data }),
+      ),
       removeItems: async (parent, { ids }) => {
         await this.db.items.destroy({
           where: {
@@ -373,14 +391,10 @@ class GraphQLMiddleware {
           success: true,
         };
       },
-      editChildren: async (parent, { childIds, data }) => {
-        for (let i = 0; i < childIds.length; i += 1) {
-          // eslint-disable-next-line no-await-in-loop
-          const r = await self.editChild(parent, { childId: childIds[i], data });
-          if (!r.success) return r;
-        }
-        return { success: true };
-      },
+      editChildren: (parent, { childIds, data }) => mapAsync(
+        childIds,
+        childId => self.editChild(parent, { childId, data }),
+      ),
       removeChildren: async (parent, { childIds }) => {
         const ids = childIds.map((a) => {
           const [itemId, childId] = util.splitId(a);

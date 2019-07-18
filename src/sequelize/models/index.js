@@ -3,7 +3,8 @@ const { transform } = require('dottie');
 const Sequelize = require('sequelize');
 const baseConfig = require('../config/config.js');
 
-const config = baseConfig[process.env.NODE_ENV || 'development'];
+const env = process.env.NODE_ENV || 'development';
+const config = baseConfig[env];
 const db = {};
 
 let sequelize;
