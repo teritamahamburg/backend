@@ -2,23 +2,44 @@ type Query {
     items(sort: [[String!]!] = [["id", "asc"]], search: String, itemEnum: ItemEnum = NORMAL): [Item!]!
     item(id: ID!): Item
 
+    children(search: String, childEnum: ChildEnum = NORMAL): [ChildItem!]!
+    child(childId: ID!): ChildItem
+
+    users: [User!]!
+
     csv(paranoid: Boolean = false): CSV!
 }
 
 type Mutation {
     addItem(data: ItemInput!): ItemResult!
+    addItems(data: [ItemInput!]!): [ItemResult!]!
     editItem(id: ID!, data: EditItemInput!): Result!
-    editItems(ids: [ID!]!, data: EditItemInput!): Result!
-    removeItems(ids: [ID!]!): Result! # share parts
-    restoreItem(id: ID!): Result! # share parts
+    editItems(ids: [ID!]!, data: EditItemInput!): [Result!]!
+    removeItems(ids: [ID!]!): Result!
+    restoreItem(id: ID!): Result!
 
-    addPart(internalId: ID!, data: PartItemInput!): ItemResult!
-    editPart(id: ID!, data: PartItemInput!): Result!
+    # [always added] addChild(internalId: ID!, data: ChildItemInput!): ItemResult!
+    editChild(childId: ID!, data: EditChildItemInput!): Result!
+    editChildren(childIds: [ID!]!, data: EditChildItemInput!): [Result!]!
+    removeChildren(childIds: [ID!]!): Result!
+    restoreChild(childId: ID!): Result!
 }
 
 scalar Date
 scalar Time
 scalar DateTime
+# scalar Upload
+
+enum ItemEnum {
+    ONLY_DELETED,
+    ALL,
+    NORMAL,
+}
+
+enum ChildEnum {
+    ONLY_DELETED,
+    NORMAL,
+}
 
 type User {
     id: ID!
@@ -43,52 +64,73 @@ type Result {
 type ItemResult {
     success: Boolean!
     message: String
-    item: Item!
+    item: Item
 }
 
 type Item {
+    # items Table
     id: ID!
-    internalId: ID!
-    partId: ID!
-    seal: String
-    schoolName: String!
     name: String!
     code: String!
     amount: Int!
-    purchasedAt: Date!
-    user: User!
+    admin: User!
     course: Course!
-    checkedAt: Date
-    room: Room!
-    disposalAt: Date
-    depreciationAt: Date
-    editUser: User!
+    purchasedAt: Date!
+
     createdAt: DateTime!
     deletedAt: DateTime
 
-    histories: [HistoryItem!]!
+    # itemsHistories Table
+    room: Room!
+    seal: String
+    checkedAt: Date
+    disposalAt: Date
+    depreciationAt: Date
 
-    parts: [PartItem!]!
+    # Option
+    histories: [HistoryItem!]!
+    children: [ChildItem!]!
 }
 
 type HistoryItem {
     id: ID!
-    room: Room
-    editUser: User!
+    room: Room!
+    seal: String
     checkedAt: Date
     disposalAt: Date
     depreciationAt: Date
+
     createdAt: DateTime!
 }
 
-type PartItem {
+type ChildItem {
+    internalId: ID!
     id: ID!
-    internalId: String!
-    partId: String!
-    editUser: User!
-    name: String!
-    room: Room!
+    itemId: ID!
+    childId: ID!
+    name: String
+    room: Room
     checkedAt: Date
+
+    createdAt: DateTime!
+    deletedAt: DateTime
+
+    histories: [HistoryChildItem!]!
+
+    item: Item!
+}
+
+type HistoryChildItem {
+    internalId: ID!
+    id: ID!
+    itemId: ID!
+    childId: ID!
+    name: String
+    room: Room
+    checkedAt: Date
+
+    createdAt: DateTime!
+    deletedAt: DateTime
 }
 
 type CSV {
@@ -97,43 +139,44 @@ type CSV {
 }
 
 input ItemInput {
-    sealImage: Upload
-    schoolName: String = "ss"
+    # items
     name: String!
     code: String!
     amount: Int = 1
-    purchasedAt: Date!
-    user: String!
+    admin: String!
     course: String!
-    checkedAt: Date
+    purchasedAt: Date!
+
+    # itemHistories
     room: Int!
+    seal: Upload
+    checkedAt: Date
     disposalAt: Date
     depreciationAt: Date
-    editUser: String!
 
     createdAt: DateTime
 }
 
 input EditItemInput {
     room: Int
+    seal: Upload
     checkedAt: Date
     disposalAt: Date
     depreciationAt: Date
-    editUser: String!
 }
 
-input PartItemInput {
-    editUser: String!
+# input ChildItemInput {
+#     name: String
+#     room: Int
+#     checkedAt: Date
+#
+#     createdAt: DateTime
+# }
+
+input EditChildItemInput {
     name: String
     room: Int
     checkedAt: Date
 
-    # editPart query don't use `createdAt`
     createdAt: DateTime
-}
-
-enum ItemEnum {
-    ONLY_DELETED,
-    ALL,
-    NORMAL,
 }

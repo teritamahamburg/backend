@@ -15,6 +15,9 @@ module.exports = {
   externals: [
     nodeExternals(),
   ],
+  optimization: {
+    nodeEnv: false,
+  },
   module: {
     rules: [
       {

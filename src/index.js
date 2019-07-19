@@ -14,6 +14,14 @@ gql.middleware(app);
 
 const router = new Router();
 
+if (process.env.NODE_ENV === 'test') {
+  router.del('/db_reset', async (ctx) => {
+    await db.sequelize.dropAllSchemas();
+    await db.sequelize.sync({ force: true });
+    ctx.status = 200;
+  });
+}
+
 app.use(router.routes());
 app.use(router.allowedMethods());
 

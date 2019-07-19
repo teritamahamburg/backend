@@ -6,15 +6,30 @@ module.exports = {
       primaryKey: true,
       type: Sequelize.INTEGER,
     },
-    internalId: {
+    name: {
+      allowNull: false,
       type: Sequelize.STRING,
-      allowNull: false,
-      unique: 'id',
     },
-    partId: {
-      type: Sequelize.INTEGER,
+    code: {
       allowNull: false,
-      unique: 'id',
+      unique: 'code',
+      type: Sequelize.STRING,
+    },
+    amount: {
+      allowNull: false,
+      type: Sequelize.INTEGER,
+    },
+    adminId: {
+      allowNull: false,
+      type: Sequelize.INTEGER,
+    },
+    courseId: {
+      allowNull: false,
+      type: Sequelize.INTEGER,
+    },
+    purchasedAt: {
+      allowNull: false,
+      type: Sequelize.DATE,
     },
     createdAt: {
       allowNull: false,

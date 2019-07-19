@@ -1,8 +1,6 @@
 import fs from 'fs';
 import { extname } from 'path';
 
-import uuidv4 from 'uuid/v4';
-
 import { ApolloServer } from 'apollo-server-koa';
 import { GraphQLDate, GraphQLDateTime, GraphQLTime } from 'graphql-iso-date';
 
@@ -20,9 +18,51 @@ const itemsSortProperties = [
   'depreciationAt',
 ];
 
+const util = {
+  concatId(itemId, childId) {
+    return `${itemId},${childId}`;
+  },
+  splitId(id) {
+    return id.split(',');
+  },
+};
+
+const mapAsync = (arr, cb) => {
+  const result = [];
+  let p = Promise.resolve();
+  arr.forEach((a) => {
+    p = p.then(async () => {
+      const data = await cb(a);
+      result.push(data);
+    });
+  });
+  return p.then(() => Promise.resolve(result));
+};
+
+const convertDate = (date) => {
+  if (!date) return null;
+  let d = date;
+  if (typeof d === 'string') {
+    d = new Date(date);
+  }
+  return d.toISOString().substring(0, 10);
+};
+
+const itemToQL = item => (item ? ({
+  ...item,
+  checkedAt: convertDate(item.checkedAt),
+  disposalAt: convertDate(item.disposalAt),
+  depreciationAt: convertDate(item.depreciationAt),
+}) : undefined);
+
 class GraphQLMiddleware {
   constructor(database) {
-    const { Query, Mutation, Item } = this;
+    const {
+      Query,
+      Mutation,
+      Item,
+      ChildItem,
+    } = this;
     this.db = database;
     this.server = new ApolloServer({
       typeDefs,
@@ -33,6 +73,7 @@ class GraphQLMiddleware {
         Query,
         Mutation,
         Item,
+        ChildItem,
       },
     });
   }
@@ -43,9 +84,7 @@ class GraphQLMiddleware {
         likes: search ? [
           ['name', `%${search}%`],
           ['code', `%${search}%`],
-          ['schoolName', `%${search}%`],
-          ['user.name', `%${search}%`],
-          ['editUser.name', `%${search}%`],
+          ['admin.name', `%${search}%`],
           ['course.name', `%${search}%`],
           ['room.number', `%${search}%`],
         ] : [],
@@ -53,110 +92,144 @@ class GraphQLMiddleware {
           .filter(s => itemsSortProperties.includes(s[0]))
           .map(([col, order]) => [col, order === 'asc' ? 'asc' : 'desc']),
         itemEnum,
-      }),
+      }).then(items => items.map(i => itemToQL(i))),
       item: async (parent, { id }) => {
         const item = await this.db.items.findOne({
           paranoid: false,
           where: { id },
           include: [
             {
+              model: this.db.users,
+              as: 'admin',
+            },
+            this.db.courses,
+            {
               model: this.db.itemHistories,
               limit: 1,
               order: [['id', 'desc']],
               include: [
-                {
-                  model: this.db.users,
-                  as: 'user',
-                },
-                {
-                  model: this.db.users,
-                  as: 'editUser',
-                },
                 this.db.rooms,
-                this.db.courses,
               ],
             },
           ],
         });
-        return item ? ({
+        return item ? itemToQL({
           ...item.itemHistories[0].dataValues,
           ...item.dataValues,
         }) : undefined;
       },
-      csv: paranoid => this.db.queries.csv({ paranoid }),
+      children: (parent, { search, childEnum }) => this.db.queries.children({
+        childEnum,
+        likes: search ? [
+          ['name', `%${search}%`],
+          ['room.number', `%${search}%`],
+        ] : [],
+      }).then(children => children.map((child) => {
+        /* eslint-disable no-param-reassign */
+        child.internalId = child.id;
+        child.id = util.concatId(child.itemId, child.childId);
+        return itemToQL(child);
+      })),
+      child: async (parent, { childId: id }) => {
+        const [itemId, childId] = util.splitId(id);
+        return this.db.childHistories.findOne({
+          where: {
+            itemId,
+            childId,
+          },
+          order: [['id', 'desc']],
+          limit: 1,
+        }).then(c => itemToQL(c.dataValues));
+      },
+      csv: (parent, { paranoid }) => this.db.queries.csv({ paranoid }),
+      users: () => this.db.users.findAll(),
     };
   }
 
   get Mutation() {
     const self = {
+      // item Mutations
       addItem: async (parent, { data }) => {
-        const internalId = uuidv4();
+        // 事前準備(他テーブルに必要なデータを追加)
+        const admin = (await this.db.users.findOrCreate({
+          where: { name: data.admin },
+          defaults: { name: data.admin },
+        }))[0];
+        const course = (await this.db.courses.findOrCreate({
+          where: { name: data.course },
+          defaults: { name: data.course },
+        }))[0];
+        const room = (await this.db.rooms.findOrCreate({
+          where: { number: data.room },
+          defaults: { number: data.room },
+        }))[0];
+
+        let item;
+        try {
+          item = await this.db.items.create({
+            name: data.name,
+            code: data.code,
+            amount: Number(data.amount),
+            adminId: admin.id,
+            courseId: course.id,
+            purchasedAt: data.purchasedAt,
+            createdAt: data.createdAt,
+          });
+        } catch (e) {
+          return {
+            success: false,
+            message: 'code is not unique',
+          };
+        }
+
         let seal = null;
         // シールのダウンロード
-        if (data.sealImage) {
+        if (data.seal) {
           await fs.promises.mkdir('storage/seal', { recursive: true });
-          const { filename, mimetype, createReadStream } = await data.sealImage;
+          const { filename, mimetype, createReadStream } = await data.seal;
 
           if (!mimetype.startsWith('image/')) return { success: false, message: 'seal must image' };
-          const dest = fs.createWriteStream(`storage/seal/${internalId}${extname(filename)}`);
+          const dest = fs.createWriteStream(`storage/seal/${data.code}${extname(filename)}`);
           await new Promise((resolve) => {
             seal = extname(filename);
             createReadStream().pipe(dest).on('finish', resolve);
           });
         }
 
-        // 事前準備(他テーブルに必要なデータを追加)
-        const user = (await this.db.users.findOrCreate({
-          where: { name: data.user },
-          defaults: { name: data.user },
-        }))[0];
-        const editUser = data.user === data.editUser ? user : (await this.db.users.findOrCreate({
-          where: { name: data.editUser },
-          defaults: { name: data.editUser },
-        }))[0];
-        const room = (await this.db.rooms.findOrCreate({
-          where: { number: data.room },
-          defaults: { number: data.room },
-        }))[0];
-        const course = (await this.db.courses.findOrCreate({
-          where: { name: data.course },
-          defaults: { name: data.course },
-        }))[0];
-
-        const item = await this.db.items.create({
-          internalId,
-          partId: 0,
-          seal,
-        });
+        if (data.amount > 1) {
+          await this.db.childHistories.bulkCreate([...Array(data.amount).keys()].map(i => ({
+            itemId: item.id,
+            childId: i + 1,
+          })));
+        }
 
         // 実データ挿入
-        await this.db.itemHistories.create({
+        const itemHistory = await this.db.itemHistories.create({
           itemId: item.id,
-          ...data,
-          userId: user.id,
-          courseId: course.id,
           roomId: room.id,
-          editUserId: editUser.id,
+          seal,
+          checkedAt: data.checkedAt,
+          disposalAt: data.disposalAt,
+          depreciationAt: data.depreciationAt,
         });
 
         return {
           success: true,
-          item,
+          item: itemToQL({
+            ...itemHistory.dataValues,
+            ...item.dataValues,
+          }),
         };
       },
-      editItems: async (parent, { ids, data }) => {
-        for (let i = 0; i < ids.length; i += 1) {
-          // eslint-disable-next-line no-await-in-loop
-          const r = await self.editItem(parent, { id: ids[i], data });
-          if (!r.success) return r;
-        }
-        return { success: true };
-      },
+      addItems: (parent, { data }) => mapAsync(
+        data,
+        d => self.addItem(parent, { data: d }),
+      ),
       editItem: async (parent, { id, data }) => {
         const len = Object.values(data)
           .filter(v => v !== undefined)
           .length;
-        if (len <= 1) { // 1 = editUser
+        if (len <= 0) {
           return {
             success: false,
             message: 'edit param needs at least 1',
@@ -178,11 +251,18 @@ class GraphQLMiddleware {
             message: 'item not found',
           };
         }
-        if (item.partId !== 0) {
-          return {
-            success: false,
-            message: 'item is part',
-          };
+        let seal = null;
+        // シールのダウンロード
+        if (data.seal) {
+          await fs.promises.mkdir('storage/seal', { recursive: true });
+          const { filename, mimetype, createReadStream } = await data.seal;
+
+          if (!mimetype.startsWith('image/')) return { success: false, message: 'seal must image' };
+          const dest = fs.createWriteStream(`storage/seal/${item.code}${extname(filename)}`);
+          await new Promise((resolve) => {
+            seal = extname(filename);
+            createReadStream().pipe(dest).on('finish', resolve);
+          });
         }
         const edit = {};
         Object.keys(data).forEach((key) => {
@@ -190,11 +270,6 @@ class GraphQLMiddleware {
             edit[key] = data[key];
           }
         });
-        edit.editUserId = (await this.db.users.findOrCreate({
-          where: { name: edit.editUser },
-          defaults: { name: edit.editUser },
-        }))[0].id;
-        delete edit.editUser;
         if (edit.room) {
           edit.roomId = (await this.db.rooms.findOrCreate({
             where: { number: edit.room },
@@ -202,6 +277,7 @@ class GraphQLMiddleware {
           }))[0].id;
           delete edit.room;
         }
+        if (seal) edit.seal = seal;
         await this.db.itemHistories.create({
           ...item.dataValues.itemHistories[0].dataValues,
           ...edit,
@@ -213,162 +289,16 @@ class GraphQLMiddleware {
           success: true,
         };
       },
+      editItems: (parent, { ids, data }) => mapAsync(
+        ids,
+        id => self.editItem(parent, { id, data }),
+      ),
       removeItems: async (parent, { ids }) => {
-        const wheres = (await this.db.items.findAll({
+        await this.db.items.destroy({
           where: {
             id: ids,
           },
-        })).map(({ id, partId, internalId }) => (partId === 0 ? { internalId } : { id }));
-
-        await this.db.items.destroy({
-          where: {
-            [this.db.Sequelize.Op.or]: wheres,
-          },
         });
-        return {
-          success: true,
-        };
-      },
-      addPart: async (parent, { internalId, data }) => {
-        if (Object.keys(data).filter(k => !['editUser', 'createdAt'].includes(k)).length === 0) {
-          return {
-            success: false,
-            message: 'change at least one',
-          };
-        }
-        let item = (await this.db.items.findAll({
-          paranoid: false,
-          attributes: [
-            [this.db.sequelize.fn('MAX', this.db.sequelize.col('partId')), 'max'],
-            'deletedAt',
-          ],
-          where: { internalId },
-          order: [['id', 'desc']],
-          limit: 1,
-          include: [
-            {
-              model: this.db.itemHistories,
-              limit: 1,
-              order: [['id', 'desc']],
-              include: [
-                { model: this.db.users, as: 'editUser' },
-                this.db.rooms,
-              ],
-            },
-          ],
-        }))[0].dataValues;
-        if (!item.id) {
-          return {
-            success: false,
-            message: 'parent item not found',
-          };
-        }
-        const { max, deletedAt } = item;
-        item = {
-          ...item.itemHistories[0].dataValues,
-        };
-        item.room = item.room.number;
-        if (Object.keys(data)
-          .filter(k => !['editUser', 'createdAt'].includes(k))
-          .every(k => data[k] === item[k])) {
-          return {
-            success: false,
-            message: 'part data not change',
-          };
-        }
-        if (item.editUser.name !== data.editUser) {
-          item.editUserId = (await this.db.users.findOrCreate({
-            where: { name: data.editUser },
-            defaults: { name: data.editUser },
-          }))[0].id;
-        }
-        item.name = data.name || item.name;
-        if (item.room.number !== data.room) {
-          item.roomId = (await this.db.rooms.findOrCreate({
-            where: { number: data.room },
-            defaults: { number: data.room },
-          }))[0].id;
-        }
-        item.checkedAt = data.checkedAt || item.checkedAt;
-        item.itemId = (await this.db.items.create({
-          internalId,
-          partId: max + 1,
-          deletedAt,
-          createdAt: data.createdAt,
-        })).id;
-        delete item.id;
-        delete item.createdAt;
-        delete item.updatedAt;
-        await this.db.itemHistories.create(item);
-        return {
-          success: true,
-          item: {
-            id: item.itemId,
-          },
-        };
-      },
-      editPart: async (parent, { id, data }) => {
-        if (Object.keys(data).filter(k => !['editUser', 'createdAt'].includes(k)).length === 0) {
-          return {
-            success: false,
-            message: 'change at least one',
-          };
-        }
-        let item = await this.db.items.findOne({
-          paranoid: false,
-          where: { id },
-          include: [
-            {
-              model: this.db.itemHistories,
-              limit: 1,
-              order: [['id', 'desc']],
-              include: [
-                { model: this.db.users, as: 'editUser' },
-                this.db.rooms,
-              ],
-            },
-          ],
-        });
-        if (!item) {
-          return {
-            success: false,
-            message: 'item not found',
-          };
-        }
-        if (item.partId === 0) {
-          return {
-            success: false,
-            message: 'partId is 0, use `editItem` query instead',
-          };
-        }
-        item = item.dataValues.itemHistories[0].dataValues;
-        item.room = item.room.number;
-        if (Object.keys(data)
-          .filter(k => !['editUser', 'createdAt'].includes(k))
-          .every(k => data[k] === item[k])) {
-          return {
-            success: false,
-            message: 'part data not change',
-          };
-        }
-        if (item.editUser.name !== data.editUser) {
-          item.editUserId = (await this.db.users.findOrCreate({
-            where: { name: data.editUser },
-            defaults: { name: data.editUser },
-          }))[0].id;
-        }
-        item.name = data.name || item.name;
-        if (item.room.number !== data.room) {
-          item.roomId = (await this.db.rooms.findOrCreate({
-            where: { number: data.room },
-            defaults: { number: data.room },
-          }))[0].id;
-        }
-        item.checkedAt = data.checkedAt || item.checkedAt;
-        delete item.id;
-        delete item.createdAt;
-        delete item.updatedAt;
-        await this.db.itemHistories.create(item);
         return {
           success: true,
         };
@@ -398,58 +328,155 @@ class GraphQLMiddleware {
           success: true,
         };
       },
+      // child Mutations
+      editChild: async (parent, { childId: id, data }) => {
+        if (Object.keys(data).filter(k => !['createdAt'].includes(k)).length === 0) {
+          return {
+            success: false,
+            message: 'change at least one',
+          };
+        }
+        const [itemId, childId] = util.splitId(id);
+        const item = await this.db.items.findOne({
+          paranoid: false,
+          where: {
+            id: itemId,
+          },
+          include: [
+            {
+              model: this.db.childHistories,
+              where: { childId },
+              limit: 1,
+              order: [['id', 'desc']],
+              include: [
+                this.db.rooms,
+              ],
+            },
+          ],
+        });
+        if (!item || item.childHistories.length === 0) {
+          return {
+            success: false,
+            message: 'item not found',
+          };
+        }
+        const child = item.dataValues.childHistories[0];
+        const edit = {
+          itemId,
+          childId,
+          name: child.name,
+          roomId: child.room ? child.room.id : null,
+          room: child.room ? child.room.number : null,
+          checkedAt: child.checkedAt,
+          createdAt: data.createdAt,
+        };
+        if (Object.keys(data)
+          .filter(k => !['createdAt'].includes(k))
+          .every(k => data[k] === edit[k])) {
+          return {
+            success: false,
+            message: 'part data not change',
+          };
+        }
+        edit.name = data.name || edit.name;
+        if (data.room && edit.room !== data.room) {
+          edit.roomId = (await this.db.rooms.findOrCreate({
+            where: { number: data.room },
+            defaults: { number: data.room },
+          }))[0].id;
+        }
+        edit.checkedAt = data.checkedAt || edit.checkedAt;
+        await this.db.childHistories.create(edit);
+        return {
+          success: true,
+        };
+      },
+      editChildren: (parent, { childIds, data }) => mapAsync(
+        childIds,
+        childId => self.editChild(parent, { childId, data }),
+      ),
+      removeChildren: async (parent, { childIds }) => {
+        const ids = childIds.map((a) => {
+          const [itemId, childId] = util.splitId(a);
+          return { itemId, childId };
+        });
+        await this.db.childHistories.destroy({
+          where: {
+            [this.db.Sequelize.Op.or]: ids,
+          },
+        });
+        return {
+          success: true,
+        };
+      },
+      restoreChild: async (parent, { childId: id }) => {
+        const [itemId, childId] = util.splitId(id);
+        const children = await this.db.childHistories.findAll({
+          paranoid: false,
+          attributes: ['id', 'deletedAt'],
+          where: { itemId, childId },
+        });
+        if (children.length === 0) {
+          return {
+            success: false,
+            message: 'child item not found',
+          };
+        }
+        await this.db.childHistories.restore({
+          where: {
+            id: children.map(c => c.id),
+          },
+        });
+        return {
+          success: true,
+        };
+      },
     };
     return self;
   }
 
   get Item() {
     return {
-      histories: async ({ id }) => this.db.itemHistories.findAll({
-        attributes: ['id', 'createdAt', 'checkedAt', 'disposalAt', 'depreciationAt'],
-        where: { itemId: id },
-        order: [['id', 'desc']],
-        include: [
-          {
-            model: this.db.users,
-            as: 'editUser',
-          },
-          this.db.rooms,
-        ],
-      }),
-      parts: async ({ internalId, partId }) => {
-        if (partId !== 0) return [];
-        const items = await this.db.items.findAll({
-          where: {
-            internalId,
-            partId: {
-              [this.db.Sequelize.Op.ne]: 0,
-            },
-          },
+      histories: async ({ id }) => {
+        const items = await this.db.itemHistories.findAll({
+          where: { itemId: id },
+          order: [['id', 'desc']],
           include: [
-            {
-              model: this.db.itemHistories,
-              limit: 1,
-              order: [['id', 'desc']],
-              include: [
-                {
-                  model: this.db.users,
-                  as: 'user',
-                },
-                {
-                  model: this.db.users,
-                  as: 'editUser',
-                },
-                this.db.rooms,
-                this.db.courses,
-              ],
-            },
+            this.db.rooms,
           ],
         });
-        return items.map(item => ({
-          ...item.itemHistories[0].dataValues,
-          ...item.dataValues,
+        return items.slice(1);
+      },
+      children: async ({ id }) => {
+        const children = await this.db.queries.children({ itemId: id });
+        return children.map(child => ({
+          ...child,
+          id: util.concatId(id, child.childId),
+          internalId: child.id,
         }));
       },
+    };
+  }
+
+  get ChildItem() {
+    return {
+      histories: async ({ itemId, childId }) => {
+        const children = await this.db.childHistories.findAll({
+          where: {
+            itemId,
+            childId,
+          },
+          order: [
+            ['id', 'desc'],
+          ],
+        });
+        return children.slice(1).map(child => ({
+          ...child.dataValues,
+          id: util.concatId(itemId, child.childId),
+          internalId: child.id,
+        }));
+      },
+      item: ({ itemId }) => this.Query.item(undefined, { id: itemId }),
     };
   }
 
