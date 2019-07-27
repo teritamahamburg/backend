@@ -32,47 +32,46 @@ db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 
 // TODO: replace sequelize query
-// noinspection SqlResolve
 db.queries = {
-  selectQuery: `
-    SELECT __SELECT__
-FROM (SELECT item.id,
-             item.name,
-             item.code,
-             item.amount,
-             admin.id       AS \`admin.id\`,
-             admin.name     AS \`admin.name\`,
-             course.id     AS \`course.id\`,
-             course.name   AS \`course.name\`,
-             item.purchasedAt,
-             item.createdAt,
-             item.deletedAt,
-             hist.seal,
-             room.id       AS \`room.id\`,
-             room.number   AS \`room.number\`,
-             hist.checkedAt,
-             hist.disposalAt,
-             hist.depreciationAt
+  // language=TEXT
+  selectQuery: `SELECT __SELECT__
+      FROM (SELECT item.id,
+                   item.name,
+                   item.code,
+                   item.amount,
+                   admin.id       AS \`admin.id\`,
+                   admin.name     AS \`admin.name\`,
+                   course.id     AS \`course.id\`,
+                   course.name   AS \`course.name\`,
+                   item.purchasedAt,
+                   item.createdAt,
+                   item.deletedAt,
+                   hist.seal,
+                   room.id       AS \`room.id\`,
+                   room.number   AS \`room.number\`,
+                   hist.checkedAt,
+                   hist.disposalAt,
+                   hist.depreciationAt
       FROM (SELECT MAX(ih.id) AS m FROM itemHistories AS ih GROUP BY ih.itemId) AS m
                JOIN itemHistories AS hist ON m.m = hist.id
                JOIN rooms AS room ON hist.roomId = room.id
                JOIN items item ON hist.itemId = item.id
                JOIN users AS admin ON item.adminId = admin.id
-               JOIN courses AS course ON item.courseId = course.id)
-    `.replace(/\n/g, ' ').replace(/ +/g, ' '),
+               JOIN courses AS course ON item.courseId = course.id)`.replace(/\n/g, ' ').replace(/ +/g, ' '),
+  // language=TEXT
   childSelectQuery: `SELECT
-    child.id,
-    child.itemId,
-    child.childId,
-    child.name,
-    child.checkedAt,
-    r.id AS \`room.id\`,
-    r.number AS \`room.number\`,
-    child.createdAt,
-    child.deletedAt
-FROM (SELECT MAX(c.id) AS i FROM childHistories AS c __INNER_ATTR__) AS ch
-         JOIN childHistories AS child ON ch.i = child.id
-         LEFT OUTER JOIN rooms r on child.roomId = r.id`.replace(/\n/g, ' ').replace(/ +/g, ' '),
+          child.id,
+          child.itemId,
+          child.childId,
+          child.name,
+          child.checkedAt,
+          r.id AS \`room.id\`,
+          r.number AS \`room.number\`,
+          child.createdAt,
+          child.deletedAt
+      FROM (SELECT MAX(c.id) AS i FROM childHistories AS c __INNER_ATTR__) AS ch
+               JOIN childHistories AS child ON ch.i = child.id
+               LEFT OUTER JOIN rooms r on child.roomId = r.id`.replace(/\n/g, ' ').replace(/ +/g, ' '),
   children({
     itemId,
     childEnum = 'NORMAL',
@@ -165,8 +164,11 @@ FROM (SELECT MAX(c.id) AS i FROM childHistories AS c __INNER_ATTR__) AS ch
     const itemRows = await db.sequelize.query(`${itemQuery}${paranoid ? '' : ' WHERE deletedAt IS NULL'} ORDER BY id;`, {
       type: db.Sequelize.QueryTypes.SELECT,
     }).then(rows => rows.map(({ row }) => row).join('\n'));
-    const childSelect = `'"' || itemId || '","' || childId || '","","' || replace(ifnull(name, ''), '"', '""') || '","","","","","' || ifnull(\`room.number\`, '') || '","","' || ifnull(checkedAt, '') || '","","","' || createdAt || '","' || ifnull(deletedAt, '') || '"' as row`;
+    const childSelect = '\'"\' || itemId || \'","\' || childId || \'","","\' || replace(ifnull(name, \'\'), \'"\', \'""\') || \'","","","","","\' || ifnull(`room.number`, \'\') || \'","","\' || ifnull(checkedAt, \'\') || \'","","","\' || createdAt || \'","\' || ifnull(deletedAt, \'\') || \'"\' as row';
+
+    // language=TEXT
     const childQuery = `SELECT ${childSelect} FROM (${db.queries.childSelectQuery.replace('__INNER_ATTR__', 'GROUP BY c.itemId, c.childId')}${paranoid ? '' : ' WHERE child.deletedAt IS NULL'}) ORDER BY itemId, childId;`;
+
     const childRows = await db.sequelize.query(childQuery, {
       type: db.Sequelize.QueryTypes.SELECT,
     }).then(rows => rows.map(({ row }) => row).join('\n'));
@@ -186,6 +188,7 @@ FROM (SELECT MAX(c.id) AS i FROM childHistories AS c __INNER_ATTR__) AS ch
  * @prop {object} users
  * @prop {object} rooms
  * @prop {object} courses
+ * @prop {object} queries
  * @prop {object} sequelize
  * @prop {object} Sequelize
  */

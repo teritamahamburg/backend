@@ -75,7 +75,7 @@ Table(items) {
     ---
     $not_null(createdAt) datetime
     $not_null(updatedAt) datetime
-    deletedAt datatime
+    deletedAt datetime
 }
 
 Table(item_histories) {

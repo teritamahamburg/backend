@@ -36,6 +36,7 @@ app.use(Serve('public'));
 
   const port = process.env.PORT || 8081;
   app.listen(port, () => {
+    /* eslint-disable no-console */
     console.log(` listen: http://localhost:${port}`);
     console.log(`graphql: http://localhost:${port}${gql.server.graphqlPath}`);
   });
