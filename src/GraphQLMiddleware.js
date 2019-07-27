@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { extname } from 'path';
 
-import { ApolloServer } from 'apollo-server-koa';
+import { ApolloServer, makeExecutableSchema } from 'apollo-server-koa';
 import { GraphQLDate, GraphQLDateTime, GraphQLTime } from 'graphql-iso-date';
 
 import typeDefs from '../schema.graphql';
@@ -65,16 +65,18 @@ class GraphQLMiddleware {
     } = this;
     this.db = database;
     this.server = new ApolloServer({
-      typeDefs,
-      resolvers: {
-        Date: GraphQLDate,
-        Time: GraphQLTime,
-        DateTime: GraphQLDateTime,
-        Query,
-        Mutation,
-        Item,
-        ChildItem,
-      },
+      schema: makeExecutableSchema({
+        typeDefs,
+        resolvers: {
+          Date: GraphQLDate,
+          Time: GraphQLTime,
+          DateTime: GraphQLDateTime,
+          Query,
+          Mutation,
+          Item,
+          ChildItem,
+        },
+      }),
     });
   }
 
