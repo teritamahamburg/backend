@@ -76,22 +76,18 @@ db.queries = {
     itemId,
     childEnum = 'NORMAL',
     likes = [],
+    orders = [],
   }) {
-    let queryResult;
+    let query;
+    let replacements = undefined;
     if (itemId) {
-      const query = `${db.queries.childSelectQuery.replace('__INNER_ATTR__', 'WHERE itemId = ? GROUP BY c.childId')} WHERE child.deletedAt is ${childEnum === 'NORMAL' ? '' : 'not '}null;`;
-      queryResult = db.sequelize.query(query, {
-        type: Sequelize.QueryTypes.SELECT,
-        replacements: [itemId],
-      });
+      query = `${db.queries.childSelectQuery.replace('__INNER_ATTR__', 'WHERE itemId = ? GROUP BY c.childId')} WHERE child.deletedAt is ${childEnum === 'NORMAL' ? '' : 'not '}null`;
+      replacements = [itemId];
     } else if (childEnum === 'ONLY_DELETED') {
-      const query = `${db.queries.childSelectQuery.replace('__INNER_ATTR__', 'GROUP BY c.itemId, c.childId')} WHERE child.deletedAt is not null;`;
-      queryResult = db.sequelize.query(query, {
-        type: Sequelize.QueryTypes.SELECT,
-      });
+      query = `${db.queries.childSelectQuery.replace('__INNER_ATTR__', 'GROUP BY c.itemId, c.childId')} WHERE child.deletedAt is not null`;
     } else if (childEnum === 'NORMAL') {
-      let query = `${db.queries.childSelectQuery.replace('__INNER_ATTR__', 'GROUP BY c.itemId, c.childId')} WHERE child.deletedAt is null`;
-      const replacements = [];
+      query = `${db.queries.childSelectQuery.replace('__INNER_ATTR__', 'GROUP BY c.itemId, c.childId')} WHERE child.deletedAt is null`;
+      replacements = [];
       if (likes.length > 0) {
         query += ` AND (${likes
           .map(([col, t]) => {
@@ -100,11 +96,16 @@ db.queries = {
           })
           .join(' OR ')})`;
       }
-      queryResult = db.sequelize.query(`${query};`, {
-        type: Sequelize.QueryTypes.SELECT,
-        replacements,
-      });
     }
+    if (orders.length > 0) {
+      query += ` ORDER BY ${orders
+        .map(([col, o]) => `${col} ${o}`)
+        .join(', ')}`;
+    }
+    const queryResult = db.sequelize.query(`${query};`, {
+      type: Sequelize.QueryTypes.SELECT,
+      replacements,
+    });
     if (queryResult) {
       return queryResult.then(transform).then(items => items.map((item) => {
         /* eslint-disable no-param-reassign */
