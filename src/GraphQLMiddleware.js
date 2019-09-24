@@ -91,7 +91,7 @@ class GraphQLMiddleware {
           ['room.number', `%${search}%`],
         ] : [],
         orders: sort
-          .filter(s => itemsSortProperties.includes(s[0]))
+          .filter(s => itemsSortProperties.includes())
           .map(([col, order]) => [col, order === 'asc' ? 'asc' : 'desc']),
         itemEnum,
       }).then(items => items.map(i => itemToQL(i))),
@@ -120,12 +120,15 @@ class GraphQLMiddleware {
           ...item.dataValues,
         }) : undefined;
       },
-      children: (parent, { search, childEnum }) => this.db.queries.children({
+      children: (parent, { search, childEnum, sort }) => this.db.queries.children({
         childEnum,
         likes: search ? [
           ['name', `%${search}%`],
           ['room.number', `%${search}%`],
         ] : [],
+        orders: sort
+          .filter(s => s[0] === 'id')
+          .map(([col, order]) => [col, order === 'asc' ? 'asc' : 'desc']),
       }).then(children => children.map((child) => {
         /* eslint-disable no-param-reassign */
         child.internalId = child.id;

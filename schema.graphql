@@ -2,7 +2,7 @@ type Query {
     items(sort: [[String!]!] = [["id", "asc"]], search: String, itemEnum: ItemEnum = NORMAL): [Item!]!
     item(id: ID!): Item
 
-    children(search: String, childEnum: ChildEnum = NORMAL): [ChildItem!]!
+    children(sort: [[String!]!] = [["id", "asc"]], search: String, childEnum: ChildEnum = NORMAL): [ChildItem!]!
     child(childId: ID!): ChildItem
 
     users: [User!]!
