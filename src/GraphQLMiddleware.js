@@ -91,7 +91,7 @@ class GraphQLMiddleware {
           ['room.number', `%${search}%`],
         ] : [],
         orders: sort
-          .filter(s => itemsSortProperties.includes())
+          .filter(s => itemsSortProperties.includes(s[0]))
           .map(([col, order]) => [col, order === 'asc' ? 'asc' : 'desc']),
         itemEnum,
       }).then(items => items.map(i => itemToQL(i))),
