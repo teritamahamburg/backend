@@ -79,7 +79,7 @@ db.queries = {
     orders = [],
   }) {
     let query;
-    let replacements = undefined;
+    let replacements;
     if (itemId) {
       query = `${db.queries.childSelectQuery.replace('__INNER_ATTR__', 'WHERE itemId = ? GROUP BY c.childId')} WHERE child.deletedAt is ${childEnum === 'NORMAL' ? '' : 'not '}null`;
       replacements = [itemId];
@@ -99,7 +99,7 @@ db.queries = {
     }
     if (orders.length > 0) {
       query += ` ORDER BY ${orders
-        .map(([col, o]) => `${col} ${o}`)
+        .map(([col, o]) => `child.${col} ${o}`)
         .join(', ')}`;
     }
     const queryResult = db.sequelize.query(`${query};`, {
