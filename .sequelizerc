@@ -1,0 +1,10 @@
+/* language=Javascript */
+const path = require('path');
+
+const base = path.resolve('src', 'sequelize');
+module.exports = {
+  config: path.resolve(base, 'config.js'),
+  'models-path': path.resolve(base, 'models'),
+  'seeders-path': path.resolve(base, 'seeders'),
+  'migrations-path': path.resolve(base, 'migrations'),
+};

@@ -1,7 +1,7 @@
 const { transform } = require('dottie');
 
 const Sequelize = require('sequelize');
-const baseConfig = require('../config/config.js');
+const baseConfig = require('../config.js');
 
 const env = process.env.NODE_ENV || 'development';
 const config = baseConfig[env];
@@ -107,7 +107,7 @@ db.queries = {
       replacements,
     });
     if (queryResult) {
-      return queryResult.then(transform).then(items => items.map((item) => {
+      return queryResult.then(transform).then((items) => items.map((item) => {
         /* eslint-disable no-param-reassign */
         if (!item.room.id) item.room = null;
         item.createdAt = new Date(item.createdAt).toISOString();
@@ -146,7 +146,7 @@ db.queries = {
     return db.sequelize.query(`${query};`, {
       type: Sequelize.QueryTypes.SELECT,
       replacements,
-    }).then(transform).then(items => items.map((item) => {
+    }).then(transform).then((items) => items.map((item) => {
       /* eslint-disable no-param-reassign */
       item.purchasedAt = new Date(item.purchasedAt);
       item.createdAt = new Date(item.createdAt).toISOString();
@@ -164,7 +164,7 @@ db.queries = {
        ifnull(depreciationAt, '') || '","' || createdAt || '","' || ifnull(deletedAt, '') || '"' as row`);
     const itemRows = await db.sequelize.query(`${itemQuery}${paranoid ? '' : ' WHERE deletedAt IS NULL'} ORDER BY id;`, {
       type: db.Sequelize.QueryTypes.SELECT,
-    }).then(rows => rows.map(({ row }) => row).join('\n'));
+    }).then((rows) => rows.map(({ row }) => row).join('\n'));
     const childSelect = '\'"\' || itemId || \'","\' || childId || \'","","\' || replace(ifnull(name, \'\'), \'"\', \'""\') || \'","","","","","\' || ifnull(`room.number`, \'\') || \'","","\' || ifnull(checkedAt, \'\') || \'","","","\' || createdAt || \'","\' || ifnull(deletedAt, \'\') || \'"\' as row';
 
     // language=TEXT
@@ -172,7 +172,7 @@ db.queries = {
 
     const childRows = await db.sequelize.query(childQuery, {
       type: db.Sequelize.QueryTypes.SELECT,
-    }).then(rows => rows.map(({ row }) => row).join('\n'));
+    }).then((rows) => rows.map(({ row }) => row).join('\n'));
     return {
       columns: ['itemId', 'childId', 'seal', 'name', 'code', 'amount', 'admin', 'course', 'room', 'purchasedAt', 'checkedAt', 'disposalAt', 'depreciationAt', 'createdAt', 'deletedAt'],
       rows: `${itemRows}\n${childRows}`,
