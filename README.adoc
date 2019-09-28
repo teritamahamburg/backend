@@ -1,6 +1,1 @@
-= backend
-
-== memo
-`cd src/sequelize`
-`sequelize migration:generate --name ${tablename}`
-`npm run db:migrate -- --env development`
+https://github.com/teritamahamburg/asemana[Moved]
